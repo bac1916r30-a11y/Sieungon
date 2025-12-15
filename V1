@@ -1,0 +1,135 @@
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+--------------------------------------------------------------------
+-- KILL AURA GUI
+--------------------------------------------------------------------
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "KillAuraGui"
+screenGui.Parent = PlayerGui
+
+-- Main toggle button
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0, 150, 0, 50)
+toggleButton.Position = UDim2.new(0, 20, 0, 20)
+toggleButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+toggleButton.TextColor3 = Color3.new(1, 1, 1)
+toggleButton.Font = Enum.Font.SourceSansBold
+toggleButton.TextSize = 20
+toggleButton.Text = "Kill Aura: OFF"
+toggleButton.Parent = screenGui
+
+-- Status label
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(0, 150, 0, 20)
+statusLabel.Position = UDim2.new(0, 20, 0, 75)
+statusLabel.Text = "Ready"
+statusLabel.TextColor3 = Color3.new(1, 1, 1)
+statusLabel.BackgroundTransparency = 1
+statusLabel.TextSize = 14
+statusLabel.Font = Enum.Font.SourceSans
+statusLabel.Parent = screenGui
+
+-- Kill Aura variables
+local _G = {}
+_G.KillAura = false
+local Sec = 0.1 -- Attack speed
+
+-- Function to check if enemy is alive
+local function IsAlive(enemy)
+    if not enemy then return false end
+    local humanoid = enemy:FindFirstChild("Humanoid")
+    if not humanoid then return false end
+    return humanoid.Health > 0
+end
+
+-- Toggle button click event
+toggleButton.MouseButton1Click:Connect(function()
+    _G.KillAura = not _G.KillAura
+    
+    if _G.KillAura then
+        toggleButton.Text = "Kill Aura: ON"
+        toggleButton.BackgroundColor3 = Color3.fromRGB(50, 255, 50)
+        statusLabel.Text = "Killing..."
+    else
+        toggleButton.Text = "Kill Aura: OFF"
+        toggleButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+        statusLabel.Text = "Ready"
+    end
+end)
+
+-- Kill Aura main loop
+spawn(function()
+    while wait(Sec) do
+        if _G.KillAura then
+            -- Check if workspace has Enemies folder
+            local enemiesFolder = workspace:FindFirstChild("Enemies")
+            if not enemiesFolder then
+                statusLabel.Text = "No Enemies folder"
+                continue
+            end
+            
+            -- Kill all enemies
+            for _, enemy in pairs(enemiesFolder:GetChildren()) do
+                if IsAlive(enemy) then
+                    pcall(function()
+                        local humanoid = enemy:FindFirstChild("Humanoid")
+                        local rootPart = enemy:FindFirstChild("HumanoidRootPart")
+                        
+                        if humanoid and rootPart then
+                            -- Increase simulation radius for better hit detection
+                            sethiddenproperty(Player, "SimulationRadius", math.huge)
+                            
+                            -- Kill enemy
+                            humanoid.Health = 0
+                            enemy:BreakJoints()
+                            rootPart.CanCollide = false
+                            
+                            -- Update status
+                            statusLabel.Text = "Killing: " .. enemy.Name
+                        end
+                    end)
+                end
+            end
+        end
+    end
+end)
+
+-- Close button (optional)
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 30, 0, 30)
+closeBtn.Position = UDim2.new(1, -35, 0, 20)
+closeBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+closeBtn.TextColor3 = Color3.new(1, 1, 1)
+closeBtn.Text = "X"
+closeBtn.Font = Enum.Font.SourceSansBold
+closeBtn.TextSize = 18
+closeBtn.Parent = screenGui
+
+closeBtn.MouseButton1Click:Connect(function()
+    _G.KillAura = false
+    screenGui:Destroy()
+end)
+
+-- Hide/Show toggle
+local hideBtn = Instance.new("TextButton")
+hideBtn.Size = UDim2.new(0, 30, 0, 30)
+hideBtn.Position = UDim2.new(1, -70, 0, 20)
+hideBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 255)
+hideBtn.TextColor3 = Color3.new(1, 1, 1)
+hideBtn.Text = "-"
+hideBtn.Font = Enum.Font.SourceSansBold
+hideBtn.TextSize = 18
+hideBtn.Parent = screenGui
+
+hideBtn.MouseButton1Click:Connect(function()
+    toggleButton.Visible = not toggleButton.Visible
+    statusLabel.Visible = toggleButton.Visible
+    hideBtn.Text = toggleButton.Visible and "-" or "+"
+end)
+
+print("Kill Aura loaded successfully!")
