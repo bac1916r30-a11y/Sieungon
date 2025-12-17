@@ -1,0 +1,1234 @@
+-- Đặt trong StarterPlayerScripts hoặc StarterGui
+local Players = game:GetService("Players")
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+-- Dịch vụ cần thiết
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local replicated = ReplicatedStorage:WaitForChild("Remotes")
+
+-- Biến kiểm tra trạng thái
+local isGUIVisible = true
+local isMobile = UserInputService.TouchEnabled
+local currentTab = "Fruit"
+
+-- Global variables
+local _G = getfenv()
+_G.SelectFruit = nil
+_G.SelectF_Adv = nil
+_G.Random_Auto = false
+_G.DropFruit = false
+_G.StoreF = false
+_G.TwFruits = false
+_G.InstanceF = false
+
+-- Delay giữa các vòng lặp
+local Sec = 1
+
+-- CHỈ GIỮ LẠI TAB FRUIT
+local tabsData = {
+    {Name = "Fruit", Title = "Fruits", Icon = "🍎"}
+}
+
+-- Tạo GUI chính
+local mainScreenGui = Instance.new("ScreenGui")
+mainScreenGui.Name = "MainAppGUI"
+mainScreenGui.DisplayOrder = 10
+mainScreenGui.ResetOnSpawn = false
+mainScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+mainScreenGui.Parent = PlayerGui
+
+-- Container chính
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0.8, 0, 0.9, 0)
+mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+mainFrame.BackgroundTransparency = 0.05
+mainFrame.BorderSizePixel = 0
+mainFrame.ClipsDescendants = true
+mainFrame.Parent = mainScreenGui
+
+-- Tạo góc bo tròn
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0.04, 0)
+uiCorner.Parent = mainFrame
+
+-- Hiệu ứng bóng đổ
+local uiShadow = Instance.new("UIStroke")
+uiShadow.Color = Color3.fromRGB(0, 120, 215)
+uiShadow.Thickness = 2
+uiShadow.Transparency = 0.3
+uiShadow.Parent = mainFrame
+
+-- Thanh tiêu đề
+local titleBar = Instance.new("Frame")
+titleBar.Name = "TitleBar"
+titleBar.Size = UDim2.new(1, 0, 0.07, 0)
+titleBar.BackgroundColor3 = Color3.fromRGB(0, 90, 180)
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0.03, 0)
+titleCorner.Parent = titleBar
+
+local titleText = Instance.new("TextLabel")
+titleText.Name = "TitleText"
+titleText.Size = UDim2.new(0.7, 0, 1, 0)
+titleText.Position = UDim2.new(0.02, 0, 0, 0)
+titleText.BackgroundTransparency = 1
+titleText.Text = "🍎 Blox Fruits - Fruit Manager"
+titleText.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleText.TextSize = 22
+titleText.Font = Enum.Font.GothamBold
+titleText.TextXAlignment = Enum.TextXAlignment.Left
+titleText.Parent = titleBar
+
+-- Nút đóng
+local closeButton = Instance.new("TextButton")
+closeButton.Name = "CloseButton"
+closeButton.Size = UDim2.new(0, 35, 0, 35)
+closeButton.Position = UDim2.new(1, -40, 0.5, -17.5)
+closeButton.AnchorPoint = Vector2.new(0, 0.5)
+closeButton.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+closeButton.Text = "✕"
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.TextSize = 20
+closeButton.Font = Enum.Font.GothamBold
+closeButton.Parent = titleBar
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 6)
+closeCorner.Parent = closeButton
+
+-- Container cho tabs (có thể cuộn)
+local tabsContainer = Instance.new("Frame")
+tabsContainer.Name = "TabsContainer"
+tabsContainer.Size = UDim2.new(1, -10, 0.1, 0)
+tabsContainer.Position = UDim2.new(0.5, 0, 0.08, 0)
+tabsContainer.AnchorPoint = Vector2.new(0.5, 0)
+tabsContainer.BackgroundTransparency = 1
+tabsContainer.ClipsDescendants = true
+tabsContainer.Parent = mainFrame
+
+-- ScrollingFrame cho tabs (KHÔNG CẦN CUỘN VÌ CHỈ CÓ 1 TAB)
+local tabsScrolling = Instance.new("ScrollingFrame")
+tabsScrolling.Name = "TabsScrolling"
+tabsScrolling.Size = UDim2.new(1, 0, 1, 0)
+tabsScrolling.Position = UDim2.new(0, 0, 0, 0)
+tabsScrolling.BackgroundTransparency = 1
+tabsScrolling.BorderSizePixel = 0
+tabsScrolling.ScrollBarThickness = 0
+tabsScrolling.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
+tabsScrolling.ScrollingDirection = Enum.ScrollingDirection.X
+tabsScrolling.Parent = tabsContainer
+
+-- Tạo UIListLayout cho tabs
+local tabsListLayout = Instance.new("UIListLayout")
+tabsListLayout.FillDirection = Enum.FillDirection.Horizontal
+tabsListLayout.Padding = UDim.new(0, 5)
+tabsListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+tabsListLayout.Parent = tabsScrolling
+
+-- Container nội dung tab
+local contentContainer = Instance.new("Frame")
+contentContainer.Name = "ContentContainer"
+contentContainer.Size = UDim2.new(1, -20, 0.8, -20)
+contentContainer.Position = UDim2.new(0.5, 0, 0.2, 0)
+contentContainer.AnchorPoint = Vector2.new(0.5, 0)
+contentContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+contentContainer.BackgroundTransparency = 0.1
+contentContainer.Parent = mainFrame
+
+local contentCorner = Instance.new("UICorner")
+contentCorner.CornerRadius = UDim.new(0.03, 0)
+contentCorner.Parent = contentContainer
+
+-- ScrollingFrame cho nội dung
+local contentScrolling = Instance.new("ScrollingFrame")
+contentScrolling.Name = "ContentScrolling"
+contentScrolling.Size = UDim2.new(1, -10, 1, -10)
+contentScrolling.Position = UDim2.new(0.5, 0, 0.5, 0)
+contentScrolling.AnchorPoint = Vector2.new(0.5, 0.5)
+contentScrolling.BackgroundTransparency = 1
+contentScrolling.BorderSizePixel = 0
+contentScrolling.ScrollBarThickness = 6
+contentScrolling.ScrollBarImageColor3 = Color3.fromRGB(0, 120, 215)
+contentScrolling.CanvasSize = UDim2.new(0, 0, 0, 1000)
+contentScrolling.Parent = contentContainer
+
+-- Thêm UIListLayout cho content
+local contentListLayout = Instance.new("UIListLayout")
+contentListLayout.Padding = UDim.new(0, 10)
+contentListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+contentListLayout.Parent = contentScrolling
+
+-- Thay đổi chỗ này: Thêm padding tự động tính toán
+contentListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    contentScrolling.CanvasSize = UDim2.new(0, 0, 0, contentListLayout.AbsoluteContentSize.Y + 20)
+end)
+
+-- Biến lưu trữ các tab và nội dung
+local tabs = {}
+local tabContents = {}
+
+-- Hàm chuyển tab
+local function switchTab(tabName)
+    if currentTab ~= tabName and tabContents[currentTab] then
+        tabContents[currentTab].Visible = false
+        if tabs[currentTab] then
+            TweenService:Create(tabs[currentTab], TweenInfo.new(0.2), {
+                BackgroundColor3 = Color3.fromRGB(40, 40, 60),
+                TextColor3 = Color3.fromRGB(200, 200, 220)
+            }):Play()
+        end
+    end
+    
+    currentTab = tabName
+    if tabContents[tabName] then
+        tabContents[tabName].Visible = true
+    end
+    
+    if tabs[tabName] then
+        TweenService:Create(tabs[tabName], TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(0, 120, 215),
+            TextColor3 = Color3.fromRGB(255, 255, 255)
+        }):Play()
+    end
+end
+
+-- Hàm format số với dấu phẩy
+local function addCommas(number)
+    local formatted = tostring(number)
+    while true do  
+        formatted, k = formatted:gsub("^(-?%d+)(%d%d%d)", '%1,%2')
+        if k == 0 then
+            break
+        end
+    end
+    return formatted
+end
+
+-- Hàm teleport
+local function _tp(cframe)
+    if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+        Player.Character.HumanoidRootPart.CFrame = cframe
+    end
+end
+
+-- Hàm tween với bệ đỡ
+local function tweenToFruitWithPlatform(fruitPart)
+    if not Player.Character or not fruitPart then return end
+    
+    -- Tạo platform (bệ đỡ)
+    local platform = Instance.new("Part")
+    platform.Name = "FruitPlatform"
+    platform.Size = Vector3.new(10, 1, 10)
+    platform.Anchored = true
+    platform.CanCollide = true
+    platform.Transparency = 0.5
+    platform.Color = Color3.fromRGB(0, 255, 0)
+    platform.Material = Enum.Material.Neon
+    
+    -- Đặt platform dưới fruit
+    local fruitPosition = fruitPart.Position
+    platform.Position = Vector3.new(fruitPosition.X, fruitPosition.Y - 20, fruitPosition.Z)
+    platform.Parent = workspace
+    
+    -- Tween player đến platform
+    local humanoidRootPart = Player.Character:FindFirstChild("HumanoidRootPart")
+    if humanoidRootPart then
+        local tweenInfo = TweenInfo.new(2, Enum.EasingStyle.Linear)
+        local goal = {CFrame = CFrame.new(platform.Position + Vector3.new(0, 5, 0))}
+        local tween = TweenService:Create(humanoidRootPart, tweenInfo, goal)
+        tween:Play()
+        
+        tween.Completed:Connect(function()
+            -- Sau khi đến platform, tween lên fruit
+            local tweenInfo2 = TweenInfo.new(1, Enum.EasingStyle.Linear)
+            local goal2 = {CFrame = fruitPart.CFrame}
+            local tween2 = TweenService:Create(humanoidRootPart, tweenInfo2, goal2)
+            tween2:Play()
+            
+            tween2.Completed:Connect(function()
+                -- Xóa platform sau khi lấy fruit
+                task.wait(1)
+                if platform and platform.Parent then
+                    platform:Destroy()
+                end
+            end)
+        end)
+    end
+end
+
+-- Hàm thu thập fruit
+local function collectFruits(enable)
+    if not enable then return end
+    
+    for _, obj in pairs(workspace:GetChildren()) do
+        if obj:IsA("Model") and string.find(obj.Name, "Fruit") then
+            local handle = obj:FindFirstChild("Handle")
+            if handle then
+                firetouchinterest(Player.Character.HumanoidRootPart, handle, 0)
+                firetouchinterest(Player.Character.HumanoidRootPart, handle, 1)
+            end
+        end
+    end
+end
+
+-- Hàm drop fruit (giả lập)
+local function DropFruits()
+    -- Giả lập drop fruit
+    replicated.Remotes.CommF_:InvokeServer("DropFruit")
+end
+
+-- Hàm store fruit (giả lập)
+local function UpdStFruit()
+    -- Giả lập store fruit
+    replicated.Remotes.CommF_:InvokeServer("StoreFruit")
+end
+
+-- Hàm tạo section
+local function createSection(parent, title)
+    local sectionFrame = Instance.new("Frame")
+    sectionFrame.Name = "Section_" .. title
+    sectionFrame.Size = UDim2.new(1, 0, 0, 40)
+    sectionFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+    sectionFrame.BorderSizePixel = 0
+    
+    local sectionCorner = Instance.new("UICorner")
+    sectionCorner.CornerRadius = UDim.new(0, 6)
+    sectionCorner.Parent = sectionFrame
+    
+    local sectionTitle = Instance.new("TextLabel")
+    sectionTitle.Size = UDim2.new(1, -20, 1, 0)
+    sectionTitle.Position = UDim2.new(0, 10, 0, 0)
+    sectionTitle.BackgroundTransparency = 1
+    sectionTitle.Text = "📦 " .. title
+    sectionTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    sectionTitle.TextSize = 18
+    sectionTitle.Font = Enum.Font.GothamBold
+    sectionTitle.TextXAlignment = Enum.TextXAlignment.Left
+    sectionTitle.Parent = sectionFrame
+    
+    sectionFrame.Parent = parent
+    return sectionFrame
+end
+
+-- Hàm tạo dropdown
+local function createDropdown(parent, config)
+    local dropdownFrame = Instance.new("Frame")
+    dropdownFrame.Name = "Dropdown_" .. config.Title
+    dropdownFrame.Size = UDim2.new(1, 0, 0, 80)
+    dropdownFrame.BackgroundTransparency = 1
+    
+    local dropdownLabel = Instance.new("TextLabel")
+    dropdownLabel.Size = UDim2.new(1, 0, 0, 25)
+    dropdownLabel.BackgroundTransparency = 1
+    dropdownLabel.Text = config.Title
+    dropdownLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+    dropdownLabel.TextSize = 16
+    dropdownLabel.Font = Enum.Font.Gotham
+    dropdownLabel.TextXAlignment = Enum.TextXAlignment.Left
+    dropdownLabel.Parent = dropdownFrame
+    
+    local dropdownButton = Instance.new("TextButton")
+    dropdownButton.Name = "Button"
+    dropdownButton.Size = UDim2.new(1, 0, 0, 40)
+    dropdownButton.Position = UDim2.new(0, 0, 0, 30)
+    dropdownButton.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+    dropdownButton.Text = config.Values[config.Default] or "Select..."
+    dropdownButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    dropdownButton.TextSize = 14
+    dropdownButton.Font = Enum.Font.Gotham
+    dropdownButton.Parent = dropdownFrame
+    
+    local dropdownCorner = Instance.new("UICorner")
+    dropdownCorner.CornerRadius = UDim.new(0, 6)
+    dropdownCorner.Parent = dropdownButton
+    
+    local selectedValue = config.Values[config.Default]
+    
+    -- Dropdown list (ẩn ban đầu)
+    local dropdownList = Instance.new("ScrollingFrame")
+    dropdownList.Name = "List"
+    dropdownList.Size = UDim2.new(1, 0, 0, 0)
+    dropdownList.Position = UDim2.new(0, 0, 1, 5)
+    dropdownList.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+    dropdownList.BorderSizePixel = 0
+    dropdownList.ScrollBarThickness = 4
+    dropdownList.Visible = false
+    dropdownList.Parent = dropdownFrame
+    
+    local listLayout = Instance.new("UIListLayout")
+    listLayout.Parent = dropdownList
+    
+    -- Tạo các option
+    for i, value in ipairs(config.Values) do
+        local optionButton = Instance.new("TextButton")
+        optionButton.Size = UDim2.new(1, 0, 0, 30)
+        optionButton.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+        optionButton.Text = value
+        optionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        optionButton.TextSize = 14
+        optionButton.Font = Enum.Font.Gotham
+        optionButton.Parent = dropdownList
+        
+        local optionCorner = Instance.new("UICorner")
+        optionCorner.CornerRadius = UDim.new(0, 4)
+        optionCorner.Parent = optionButton
+        
+        optionButton.MouseButton1Click:Connect(function()
+            selectedValue = value
+            dropdownButton.Text = value
+            dropdownList.Visible = false
+            if config.OnChanged then
+                config.OnChanged(value)
+            end
+        end)
+    end
+    
+    -- Cập nhật kích thước list
+    listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        dropdownList.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y)
+    end)
+    
+    -- Toggle dropdown
+    dropdownButton.MouseButton1Click:Connect(function()
+        dropdownList.Visible = not dropdownList.Visible
+        if dropdownList.Visible then
+            dropdownList.Size = UDim2.new(1, 0, 0, math.min(150, #config.Values * 35))
+        else
+            dropdownList.Size = UDim2.new(1, 0, 0, 0)
+        end
+    end)
+    
+    dropdownFrame.Parent = parent
+    return dropdownFrame
+end
+
+-- Hàm tạo button
+local function createButton(parent, config)
+    local button = Instance.new("TextButton")
+    button.Name = "Button_" .. config.Title
+    button.Size = UDim2.new(1, 0, 0, 40)
+    button.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+    button.Text = config.Title
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.TextSize = 16
+    button.Font = Enum.Font.GothamBold
+    
+    if config.Description and config.Description ~= "" then
+        local description = Instance.new("TextLabel")
+        description.Size = UDim2.new(1, 0, 0, 20)
+        description.Position = UDim2.new(0, 0, 1, 5)
+        description.BackgroundTransparency = 1
+        description.Text = config.Description
+        description.TextColor3 = Color3.fromRGB(180, 180, 180)
+        description.TextSize = 12
+        description.Font = Enum.Font.Gotham
+        description.Parent = button
+    end
+    
+    local buttonCorner = Instance.new("UICorner")
+    buttonCorner.CornerRadius = UDim.new(0, 6)
+    buttonCorner.Parent = button
+    
+    button.MouseButton1Click:Connect(function()
+        if config.Callback then
+            config.Callback()
+        end
+    end)
+    
+    button.Parent = parent
+    return button
+end
+
+-- Hàm tạo toggle
+local function createToggle(parent, config)
+    local toggleFrame = Instance.new("Frame")
+    toggleFrame.Name = "Toggle_" .. config.Title
+    toggleFrame.Size = UDim2.new(1, 0, 0, 50)
+    toggleFrame.BackgroundTransparency = 1
+    
+    local toggleLabel = Instance.new("TextLabel")
+    toggleLabel.Size = UDim2.new(0.7, 0, 1, 0)
+    toggleLabel.BackgroundTransparency = 1
+    toggleLabel.Text = config.Title
+    toggleLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+    toggleLabel.TextSize = 16
+    toggleLabel.Font = Enum.Font.Gotham
+    toggleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    toggleLabel.Parent = toggleFrame
+    
+    if config.Description and config.Description ~= "" then
+        local description = Instance.new("TextLabel")
+        description.Size = UDim2.new(0.7, 0, 0, 20)
+        description.Position = UDim2.new(0, 0, 0, 25)
+        description.BackgroundTransparency = 1
+        description.Text = config.Description
+        description.TextColor3 = Color3.fromRGB(150, 150, 150)
+        description.TextSize = 12
+        description.Font = Enum.Font.Gotham
+        description.Parent = toggleFrame
+    end
+    
+    local toggleButton = Instance.new("TextButton")
+    toggleButton.Size = UDim2.new(0, 50, 0, 25)
+    toggleButton.Position = UDim2.new(1, -60, 0.5, -12.5)
+    toggleButton.AnchorPoint = Vector2.new(1, 0.5)
+    toggleButton.BackgroundColor3 = config.Default and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
+    toggleButton.Text = ""
+    toggleButton.Parent = toggleFrame
+    
+    local toggleCorner = Instance.new("UICorner")
+    toggleCorner.CornerRadius = UDim.new(0, 12)
+    toggleCorner.Parent = toggleButton
+    
+    local toggleDot = Instance.new("Frame")
+    toggleDot.Size = UDim2.new(0, 21, 0, 21)
+    toggleDot.Position = config.Default and UDim2.new(1, -23, 0.5, -10.5) or UDim2.new(0, 2, 0.5, -10.5)
+    toggleDot.AnchorPoint = Vector2.new(0, 0.5)
+    toggleDot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    toggleDot.Parent = toggleButton
+    
+    local dotCorner = Instance.new("UICorner")
+    dotCorner.CornerRadius = UDim.new(0, 10)
+    dotCorner.Parent = toggleDot
+    
+    local isToggled = config.Default
+    
+    toggleButton.MouseButton1Click:Connect(function()
+        isToggled = not isToggled
+        
+        if isToggled then
+            TweenService:Create(toggleButton, TweenInfo.new(0.2), {
+                BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+            }):Play()
+            TweenService:Create(toggleDot, TweenInfo.new(0.2), {
+                Position = UDim2.new(1, -23, 0.5, -10.5)
+            }):Play()
+        else
+            TweenService:Create(toggleButton, TweenInfo.new(0.2), {
+                BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+            }):Play()
+            TweenService:Create(toggleDot, TweenInfo.new(0.2), {
+                Position = UDim2.new(0, 2, 0.5, -10.5)
+            }):Play()
+        end
+        
+        if config.OnChanged then
+            config.OnChanged(isToggled)
+        end
+    end)
+    
+    toggleFrame.Parent = parent
+    return toggleFrame
+end
+
+-- Hàm tạo nội dung tab với các tính năng mới
+local function createTabContent(tabData, tabContent)
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Name = "Title"
+    titleLabel.Size = UDim2.new(1, 0, 0, 40)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = tabData.Icon .. " " .. tabData.Title
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.TextSize = 24
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.Parent = tabContent
+    
+    -- Fruits Options Section
+    local fruitsOptionsSection = createSection(tabContent, "Fruits Options")
+    fruitsOptionsSection.Position = UDim2.new(0, 0, 0, 50)
+    
+    -- Lấy danh sách fruits
+    local fruitsOnSale = {}
+    local Nms = {}
+    
+    -- Giả lập dữ liệu fruits (trong thực tế sẽ gọi remote)
+    local mockFruits = {
+        {Name = "Light", Price = 500000, OnSale = true},
+        {Name = "Dark", Price = 750000, OnSale = true},
+        {Name = "Flame", Price = 1000000, OnSale = true},
+        {Name = "Ice", Price = 1250000, OnSale = true},
+        {Name = "Quake", Price = 1500000, OnSale = true},
+        {Name = "Magma", Price = 1750000, OnSale = true},
+        {Name = "Buddha", Price = 2500000, OnSale = true},
+        {Name = "Venom", Price = 3000000, OnSale = true},
+        {Name = "Dough", Price = 5000000, OnSale = true},
+        {Name = "Leopard", Price = 7500000, OnSale = true}
+    }
+    
+    for _, fruitData in pairs(mockFruits) do
+        if fruitData["OnSale"] == true then
+            local priceWithCommas = addCommas(fruitData["Price"])
+            local fruitInfo = fruitData["Name"] .. " - $" .. priceWithCommas
+            table.insert(fruitsOnSale, fruitData["Name"])
+            table.insert(Nms, fruitData["Name"])
+        end
+    end
+    
+    -- Basic Fruit Stock
+    local basicStockY = 100
+    local basicStockLabel = Instance.new("TextLabel")
+    basicStockLabel.Size = UDim2.new(1, 0, 0, 25)
+    basicStockLabel.Position = UDim2.new(0, 10, 0, basicStockY)
+    basicStockLabel.BackgroundTransparency = 1
+    basicStockLabel.Text = "🛒 Basic Fruit Stock:"
+    basicStockLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    basicStockLabel.TextSize = 18
+    basicStockLabel.Font = Enum.Font.GothamBold
+    basicStockLabel.TextXAlignment = Enum.TextXAlignment.Left
+    basicStockLabel.Parent = tabContent
+    
+    -- Dropdown chọn fruit
+    local basicDropdownFrame = Instance.new("Frame")
+    basicDropdownFrame.Size = UDim2.new(1, -20, 0, 80)
+    basicDropdownFrame.Position = UDim2.new(0, 10, 0, basicStockY + 30)
+    basicDropdownFrame.BackgroundTransparency = 1
+    basicDropdownFrame.Parent = tabContent
+    
+    local basicDropdownLabel = Instance.new("TextLabel")
+    basicDropdownLabel.Size = UDim2.new(1, 0, 0, 25)
+    basicDropdownLabel.BackgroundTransparency = 1
+    basicDropdownLabel.Text = "Select Fruit Stock"
+    basicDropdownLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+    basicDropdownLabel.TextSize = 16
+    basicDropdownLabel.Font = Enum.Font.Gotham
+    basicDropdownLabel.TextXAlignment = Enum.TextXAlignment.Left
+    basicDropdownLabel.Parent = basicDropdownFrame
+    
+    local basicDropdownButton = Instance.new("TextButton")
+    basicDropdownButton.Name = "BasicDropdownButton"
+    basicDropdownButton.Size = UDim2.new(1, 0, 0, 40)
+    basicDropdownButton.Position = UDim2.new(0, 0, 0, 30)
+    basicDropdownButton.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+    basicDropdownButton.Text = Nms[1] or "Select..."
+    basicDropdownButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    basicDropdownButton.TextSize = 14
+    basicDropdownButton.Font = Enum.Font.Gotham
+    basicDropdownButton.Parent = basicDropdownFrame
+    
+    local basicDropdownCorner = Instance.new("UICorner")
+    basicDropdownCorner.CornerRadius = UDim.new(0, 6)
+    basicDropdownCorner.Parent = basicDropdownButton
+    
+    -- Nút mua basic stock
+    local buyBasicButton = createButton(tabContent, {
+        Title = "💰 Buy Basic Stock",
+        Description = "Purchase selected basic fruit",
+        Callback = function()
+            if _G.SelectFruit then
+                print("Buying Basic Fruit:", _G.SelectFruit)
+                -- Trong thực tế: replicated.Remotes.CommF_:InvokeServer("PurchaseRawFruit", _G.SelectFruit)
+            else
+                print("Please select a fruit first!")
+            end
+        end
+    })
+    buyBasicButton.Position = UDim2.new(0, 10, 0, basicStockY + 120)
+    buyBasicButton.Size = UDim2.new(1, -20, 0, 40)
+    
+    -- Mirage Fruit Section
+    local mirageY = basicStockY + 180
+    local mirageLabel = Instance.new("TextLabel")
+    mirageLabel.Size = UDim2.new(1, 0, 0, 25)
+    mirageLabel.Position = UDim2.new(0, 10, 0, mirageY)
+    mirageLabel.BackgroundTransparency = 1
+    mirageLabel.Text = "🌀 Mirage Fruit:"
+    mirageLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    mirageLabel.TextSize = 18
+    mirageLabel.Font = Enum.Font.GothamBold
+    mirageLabel.TextXAlignment = Enum.TextXAlignment.Left
+    mirageLabel.Parent = tabContent
+    
+    -- Dropdown chọn mirage fruit
+    local mirageDropdownFrame = Instance.new("Frame")
+    mirageDropdownFrame.Size = UDim2.new(1, -20, 0, 80)
+    mirageDropdownFrame.Position = UDim2.new(0, 10, 0, mirageY + 30)
+    mirageDropdownFrame.BackgroundTransparency = 1
+    mirageDropdownFrame.Parent = tabContent
+    
+    local mirageDropdownLabel = Instance.new("TextLabel")
+    mirageDropdownLabel.Size = UDim2.new(1, 0, 0, 25)
+    mirageDropdownLabel.BackgroundTransparency = 1
+    mirageDropdownLabel.Text = "Select Mirage Fruit"
+    mirageDropdownLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+    mirageDropdownLabel.TextSize = 16
+    mirageDropdownLabel.Font = Enum.Font.Gotham
+    mirageDropdownLabel.TextXAlignment = Enum.TextXAlignment.Left
+    mirageDropdownLabel.Parent = mirageDropdownFrame
+    
+    local mirageDropdownButton = Instance.new("TextButton")
+    mirageDropdownButton.Name = "MirageDropdownButton"
+    mirageDropdownButton.Size = UDim2.new(1, 0, 0, 40)
+    mirageDropdownButton.Position = UDim2.new(0, 0, 0, 30)
+    mirageDropdownButton.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+    mirageDropdownButton.Text = fruitsOnSale[1] or "Select..."
+    mirageDropdownButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    mirageDropdownButton.TextSize = 14
+    mirageDropdownButton.Font = Enum.Font.Gotham
+    mirageDropdownButton.Parent = mirageDropdownFrame
+    
+    local mirageDropdownCorner = Instance.new("UICorner")
+    mirageDropdownCorner.CornerRadius = UDim.new(0, 6)
+    mirageDropdownCorner.Parent = mirageDropdownButton
+    
+    -- Nút mua mirage stock
+    local buyMirageButton = createButton(tabContent, {
+        Title = "💰 Buy Mirage Stock",
+        Description = "Purchase selected mirage fruit",
+        Callback = function()
+            if SelectF_Adv then
+                print("Buying Mirage Fruit:", SelectF_Adv)
+                -- Trong thực tế: replicated.Remotes.CommF_:InvokeServer("PurchaseRawFruit", SelectF_Adv)
+            else
+                print("Please select a mirage fruit first!")
+            end
+        end
+    })
+    buyMirageButton.Position = UDim2.new(0, 10, 0, mirageY + 120)
+    buyMirageButton.Size = UDim2.new(1, -20, 0, 40)
+    
+    -- Auto Functions Section
+    local autoY = mirageY + 180
+    local autoLabel = Instance.new("TextLabel")
+    autoLabel.Size = UDim2.new(1, 0, 0, 25)
+    autoLabel.Position = UDim2.new(0, 10, 0, autoY)
+    autoLabel.BackgroundTransparency = 1
+    autoLabel.Text = "⚙️ Auto Functions:"
+    autoLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    autoLabel.TextSize = 18
+    autoLabel.Font = Enum.Font.GothamBold
+    autoLabel.TextXAlignment = Enum.TextXAlignment.Left
+    autoLabel.Parent = tabContent
+    
+    -- Auto Random Fruit
+    local randomFruitToggle = createToggle(tabContent, {
+        Title = "🎲 Auto Random Fruit",
+        Description = "Automatic random devil fruit",
+        Default = false,
+        OnChanged = function(Value)
+            _G.Random_Auto = Value
+            print("Auto Random Fruit:", Value)
+        end
+    })
+    randomFruitToggle.Position = UDim2.new(0, 10, 0, autoY + 35)
+    randomFruitToggle.Size = UDim2.new(1, -20, 0, 50)
+    
+    -- Auto Drop Fruit
+    local dropFruitToggle = createToggle(tabContent, {
+        Title = "📤 Auto Drop Fruit",
+        Description = "Automatic drop devil fruit",
+        Default = false,
+        OnChanged = function(Value)
+            _G.DropFruit = Value
+            print("Auto Drop Fruit:", Value)
+        end
+    })
+    dropFruitToggle.Position = UDim2.new(0, 10, 0, autoY + 95)
+    dropFruitToggle.Size = UDim2.new(1, -20, 0, 50)
+    
+    -- Auto Store Fruit
+    local storeFruitToggle = createToggle(tabContent, {
+        Title = "💾 Auto Store Fruit",
+        Description = "Automatic store devil fruit",
+        Default = false,
+        OnChanged = function(Value)
+            _G.StoreF = Value
+            print("Auto Store Fruit:", Value)
+        end
+    })
+    storeFruitToggle.Position = UDim2.new(0, 10, 0, autoY + 155)
+    storeFruitToggle.Size = UDim2.new(1, -20, 0, 50)
+    
+    -- Auto Tween to Fruit (VỚI BỆ ĐỠ)
+    local tweenFruitToggle = createToggle(tabContent, {
+        Title = "🚀 Auto Tween to Fruit",
+        Description = "Use platform + tween to get fruit",
+        Default = false,
+        OnChanged = function(Value)
+            _G.TwFruits = Value
+            print("Auto Tween to Fruit (with platform):", Value)
+        end
+    })
+    tweenFruitToggle.Position = UDim2.new(0, 10, 0, autoY + 215)
+    tweenFruitToggle.Size = UDim2.new(1, -20, 0, 50)
+    
+    -- Auto Collect Fruit
+    local collectFruitToggle = createToggle(tabContent, {
+        Title = "🔄 Auto Collect Fruit",
+        Description = "Automatic bring devil fruit",
+        Default = false,
+        OnChanged = function(Value)
+            _G.InstanceF = Value
+            print("Auto Collect Fruit:", Value)
+        end
+    })
+    collectFruitToggle.Position = UDim2.new(0, 10, 0, autoY + 275)
+    collectFruitToggle.Size = UDim2.new(1, -20, 0, 50)
+    
+    -- Cập nhật dropdown values
+    local function updateDropdowns()
+        basicDropdownButton.Text = _G.SelectFruit or Nms[1] or "Select..."
+        mirageDropdownButton.Text = SelectF_Adv or fruitsOnSale[1] or "Select..."
+    end
+    
+    -- Sự kiện cho dropdown basic
+    basicDropdownButton.MouseButton1Click:Connect(function()
+        -- Hiển thị menu chọn fruit
+        local selectionFrame = Instance.new("Frame")
+        selectionFrame.Size = UDim2.new(1, 0, 0, math.min(300, #Nms * 40))
+        selectionFrame.Position = UDim2.new(0, 0, 1, 5)
+        selectionFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+        selectionFrame.BorderSizePixel = 0
+        selectionFrame.Parent = basicDropdownFrame
+        
+        local selectionList = Instance.new("ScrollingFrame")
+        selectionList.Size = UDim2.new(1, 0, 1, 0)
+        selectionList.BackgroundTransparency = 1
+        selectionList.ScrollBarThickness = 4
+        selectionList.Parent = selectionFrame
+        
+        local listLayout = Instance.new("UIListLayout")
+        listLayout.Parent = selectionList
+        
+        for _, fruitName in ipairs(Nms) do
+            local optionButton = Instance.new("TextButton")
+            optionButton.Size = UDim2.new(1, -10, 0, 35)
+            optionButton.Position = UDim2.new(0, 5, 0, 0)
+            optionButton.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+            optionButton.Text = fruitName
+            optionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+            optionButton.TextSize = 14
+            optionButton.Font = Enum.Font.Gotham
+            optionButton.Parent = selectionList
+            
+            local optionCorner = Instance.new("UICorner")
+            optionCorner.CornerRadius = UDim.new(0, 4)
+            optionCorner.Parent = optionButton
+            
+            optionButton.MouseButton1Click:Connect(function()
+                _G.SelectFruit = fruitName
+                basicDropdownButton.Text = fruitName
+                selectionFrame:Destroy()
+                print("Selected Basic Fruit:", fruitName)
+            end)
+        end
+        
+        -- Click outside to close
+        local function closeSelection()
+            if selectionFrame and selectionFrame.Parent then
+                selectionFrame:Destroy()
+            end
+        end
+        
+        -- Đóng khi click ra ngoài
+        task.wait(0.1)
+        local connection
+        connection = UserInputService.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                local mousePos = UserInputService:GetMouseLocation()
+                local framePos = selectionFrame.AbsolutePosition
+                local frameSize = selectionFrame.AbsoluteSize
+                
+                if not (mousePos.X >= framePos.X and mousePos.X <= framePos.X + frameSize.X and
+                       mousePos.Y >= framePos.Y and mousePos.Y <= framePos.Y + frameSize.Y) then
+                    closeSelection()
+                    connection:Disconnect()
+                end
+            end
+        end)
+    end)
+    
+    -- Sự kiện cho dropdown mirage
+    mirageDropdownButton.MouseButton1Click:Connect(function()
+        -- Hiển thị menu chọn mirage fruit
+        local selectionFrame = Instance.new("Frame")
+        selectionFrame.Size = UDim2.new(1, 0, 0, math.min(300, #fruitsOnSale * 40))
+        selectionFrame.Position = UDim2.new(0, 0, 1, 5)
+        selectionFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+        selectionFrame.BorderSizePixel = 0
+        selectionFrame.Parent = mirageDropdownFrame
+        
+        local selectionList = Instance.new("ScrollingFrame")
+        selectionList.Size = UDim2.new(1, 0, 1, 0)
+        selectionList.BackgroundTransparency = 1
+        selectionList.ScrollBarThickness = 4
+        selectionList.Parent = selectionFrame
+        
+        local listLayout = Instance.new("UIListLayout")
+        listLayout.Parent = selectionList
+        
+        for _, fruitName in ipairs(fruitsOnSale) do
+            local optionButton = Instance.new("TextButton")
+            optionButton.Size = UDim2.new(1, -10, 0, 35)
+            optionButton.Position = UDim2.new(0, 5, 0, 0)
+            optionButton.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+            optionButton.Text = fruitName
+            optionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+            optionButton.TextSize = 14
+            optionButton.Font = Enum.Font.Gotham
+            optionButton.Parent = selectionList
+            
+            local optionCorner = Instance.new("UICorner")
+            optionCorner.CornerRadius = UDim.new(0, 4)
+            optionCorner.Parent = optionButton
+            
+            optionButton.MouseButton1Click:Connect(function()
+                SelectF_Adv = fruitName
+                mirageDropdownButton.Text = fruitName
+                selectionFrame:Destroy()
+                print("Selected Mirage Fruit:", fruitName)
+            end)
+        end
+        
+        -- Click outside to close
+        local function closeSelection()
+            if selectionFrame and selectionFrame.Parent then
+                selectionFrame:Destroy()
+            end
+        end
+        
+        task.wait(0.1)
+        local connection
+        connection = UserInputService.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                local mousePos = UserInputService:GetMouseLocation()
+                local framePos = selectionFrame.AbsolutePosition
+                local frameSize = selectionFrame.AbsoluteSize
+                
+                if not (mousePos.X >= framePos.X and mousePos.X <= framePos.X + frameSize.X and
+                       mousePos.Y >= framePos.Y and mousePos.Y <= framePos.Y + frameSize.Y) then
+                    closeSelection()
+                    connection:Disconnect()
+                end
+            end
+        end)
+    end)
+    
+    -- Cập nhật lần đầu
+    updateDropdowns()
+end
+
+-- Hàm tạo tab
+local function createTab(tabData)
+    local tabButton = Instance.new("TextButton")
+    tabButton.Name = "Tab_" .. tabData.Name
+    tabButton.Size = UDim2.new(0, isMobile and 120 or 110, 1, -5)
+    tabButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215) -- Màu active vì chỉ có 1 tab
+    tabButton.Text = tabData.Icon .. " " .. tabData.Title
+    tabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    tabButton.TextSize = isMobile and 14 or 13
+    tabButton.Font = Enum.Font.Gotham
+    tabButton.AutoButtonColor = true
+    tabButton.LayoutOrder = #tabs + 1
+    
+    local tabCorner = Instance.new("UICorner")
+    tabCorner.CornerRadius = UDim.new(0.1, 0)
+    tabCorner.Parent = tabButton
+    
+    local tabStroke = Instance.new("UIStroke")
+    tabStroke.Color = Color3.fromRGB(0, 120, 215)
+    tabStroke.Thickness = 2
+    tabStroke.Transparency = 0.5
+    tabStroke.Parent = tabButton
+    
+    tabButton.Parent = tabsScrolling
+    
+    local tabContent = Instance.new("Frame")
+    tabContent.Name = "Content_" .. tabData.Name
+    tabContent.Size = UDim2.new(1, 0, 0, 800) -- Tăng chiều cao
+    tabContent.BackgroundTransparency = 1
+    tabContent.Visible = true
+    tabContent.LayoutOrder = #tabs + 1
+    tabContent.Parent = contentScrolling
+    
+    createTabContent(tabData, tabContent)
+    
+    tabs[tabData.Name] = tabButton
+    tabContents[tabData.Name] = tabContent
+    
+    return tabButton, tabContent
+end
+
+-- Tạo tab Fruit
+for i, tabData in ipairs(tabsData) do
+    createTab(tabData)
+end
+
+-- Tạo nút luôn hiển thị
+local toggleScreenGui = Instance.new("ScreenGui")
+toggleScreenGui.Name = "ToggleButtonGUI"
+toggleScreenGui.DisplayOrder = 999
+toggleScreenGui.ResetOnSpawn = false
+toggleScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+toggleScreenGui.Parent = PlayerGui
+
+local toggleButton = Instance.new("TextButton")
+toggleButton.Name = "ToggleButton"
+toggleButton.Size = isMobile and UDim2.new(0, 60, 0, 60) or UDim2.new(0, 50, 0, 50)
+toggleButton.Position = UDim2.new(1, -70, 1, -70)
+toggleButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+toggleButton.Text = "🍎"
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.TextSize = isMobile and 30 or 24
+toggleButton.Font = Enum.Font.GothamBold
+toggleButton.AutoButtonColor = true
+toggleButton.Parent = toggleScreenGui
+
+local toggleCorner = Instance.new("UICorner")
+toggleCorner.CornerRadius = isMobile and UDim.new(0, 30) or UDim.new(0, 25)
+toggleCorner.Parent = toggleButton
+
+local toggleShadow = Instance.new("UIStroke")
+toggleShadow.Color = Color3.fromRGB(255, 255, 255)
+toggleShadow.Thickness = 2
+toggleShadow.Transparency = 0.5
+toggleShadow.Parent = toggleButton
+
+-- FUNCTIONS
+local function toggleGUI()
+    isGUIVisible = not isGUIVisible
+    
+    if isGUIVisible then
+        mainScreenGui.Enabled = true
+        mainFrame.Visible = true
+        
+        TweenService:Create(
+            mainFrame,
+            TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {Position = UDim2.new(0.5, 0, 0.5, 0), Size = UDim2.new(0.8, 0, 0.9, 0)}
+        ):Play()
+        
+        toggleButton.Text = "🍎"
+    else
+        TweenService:Create(
+            mainFrame,
+            TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {Position = UDim2.new(0.5, 0, 1.5, 0), Size = UDim2.new(0.8, 0, 0, 0)}
+        ):Play()
+        
+        toggleButton.Text = "👁️"
+        
+        task.wait(0.3)
+        mainFrame.Visible = false
+    end
+end
+
+-- KÉO THẢ CHO MAIN GUI
+local draggingMain = false
+local dragInputMain, dragStartMain, startPosMain
+
+local function updateMain(input)
+    local delta = input.Position - dragStartMain
+    mainFrame.Position = UDim2.new(
+        startPosMain.X.Scale, 
+        startPosMain.X.Offset + delta.X,
+        startPosMain.Y.Scale, 
+        startPosMain.Y.Offset + delta.Y
+    )
+end
+
+titleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        draggingMain = true
+        dragStartMain = input.Position
+        startPosMain = mainFrame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                draggingMain = false
+            end
+        end)
+    end
+end)
+
+titleBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInputMain = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if draggingMain and (input == dragInputMain) then
+        updateMain(input)
+    end
+end)
+
+-- KÉO THẢ CHO NÚT TOGGLE
+local draggingToggle = false
+local dragInputToggle, dragStartToggle, startPosToggle
+
+local function updateToggle(input)
+    local delta = input.Position - dragStartToggle
+    local viewportSize = workspace.CurrentCamera.ViewportSize
+    
+    local newX = startPosToggle.X.Offset + delta.X
+    local newY = startPosToggle.Y.Offset + delta.Y
+    
+    newX = math.clamp(newX, 0, viewportSize.X - toggleButton.AbsoluteSize.X)
+    newY = math.clamp(newY, 0, viewportSize.Y - toggleButton.AbsoluteSize.Y)
+    
+    toggleButton.Position = UDim2.new(0, newX, 0, newY)
+end
+
+-- Long press để kéo nút toggle
+local longPressDetected = false
+local longPressThread
+
+toggleButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        longPressDetected = false
+        local pressStartTime = tick()
+        
+        longPressThread = task.spawn(function()
+            task.wait(0.5)
+            if tick() - pressStartTime >= 0.5 then
+                longPressDetected = true
+                draggingToggle = true
+                dragStartToggle = input.Position
+                startPosToggle = toggleButton.Position
+                
+                TweenService:Create(
+                    toggleButton,
+                    TweenInfo.new(0.2),
+                    {BackgroundColor3 = Color3.fromRGB(0, 180, 255)}
+                ):Play()
+            end
+        end)
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                if longPressThread then
+                    task.cancel(longPressThread)
+                end
+                
+                if not longPressDetected then
+                    toggleGUI()
+                else
+                    draggingToggle = false
+                    TweenService:Create(
+                        toggleButton,
+                        TweenInfo.new(0.2),
+                        {BackgroundColor3 = Color3.fromRGB(0, 120, 215)}
+                    ):Play()
+                end
+                longPressDetected = false
+            end
+        end)
+    end
+end)
+
+toggleButton.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInputToggle = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if draggingToggle and (input == dragInputToggle) then
+        updateToggle(input)
+    end
+end)
+
+-- Kết nối sự kiện
+closeButton.MouseButton1Click:Connect(toggleGUI)
+
+if isMobile then
+    closeButton.TouchTap:Connect(toggleGUI)
+end
+
+-- Hiệu ứng mobile cho nút toggle
+if isMobile then
+    toggleButton.TouchTap:Connect(function()
+        if not longPressDetected and not draggingToggle then
+            local originalSize = toggleButton.Size
+            TweenService:Create(
+                toggleButton,
+                TweenInfo.new(0.1),
+                {Size = originalSize - UDim2.new(0, 10, 0, 10)}
+            ):Play()
+            
+            task.wait(0.1)
+            
+            TweenService:Create(
+                toggleButton,
+                TweenInfo.new(0.1),
+                {Size = originalSize}
+            ):Play()
+        end
+    end)
+end
+
+-- Auto functions loops
+spawn(function()
+    while wait(Sec) do
+        pcall(function()
+            -- Auto Random Fruit
+            if _G.Random_Auto then
+                print("🔄 Auto Random Fruit running...")
+                -- replicated.Remotes.CommF_:InvokeServer("Cousin", "Buy")
+            end
+            
+            -- Auto Drop Fruit
+            if _G.DropFruit then
+                DropFruits()
+            end
+            
+            -- Auto Store Fruit
+            if _G.StoreF then
+                UpdStFruit()
+            end
+            
+            -- Auto Tween to Fruit (VỚI BỆ ĐỠ)
+            if _G.TwFruits then
+                for _, obj in pairs(workspace:GetChildren()) do
+                    if obj:IsA("Model") and string.find(obj.Name, "Fruit") then
+                        local handle = obj:FindFirstChild("Handle")
+                        if handle then
+                            tweenToFruitWithPlatform(handle)
+                            break
+                        end
+                    end
+                end
+            end
+            
+            -- Auto Collect Fruit
+            if _G.InstanceF then
+                collectFruits(_G.InstanceF)
+            end
+        end)
+    end
+end)
+
+-- Tự động điều chỉnh cho mobile
+if isMobile then
+    RunService.RenderStepped:Connect(function()
+        local viewportSize = workspace.CurrentCamera.ViewportSize
+        
+        if viewportSize.Y < 700 then
+            mainFrame.Size = UDim2.new(0.95, 0, 0.95, 0)
+        else
+            mainFrame.Size = UDim2.new(0.8, 0, 0.9, 0)
+        end
+    end)
+end
+
+-- Cập nhật kích thước content
+task.wait(0.3)
+contentScrolling.CanvasSize = UDim2.new(0, 0, 0, contentListLayout.AbsoluteContentSize.Y + 20)
+
+-- Thông báo
+print("═══════════════════════════════════════════════")
+print("✅ Blox Fruits FRUIT MANAGER đã sẵn sàng!")
+print("• Chỉ có tab Fruit với đầy đủ tính năng")
+print("• Toggle Tween to Fruit sử dụng Platform + Tween")
+print("• Các tính năng auto đã được tích hợp")
+print("═══════════════════════════════════════════════")
