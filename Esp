@@ -1,0 +1,320 @@
+-- Toggle Roblox ESP Script
+-- Tác giả: Script tạo ESP với toggle bật/tắt
+-- Lưu ý: Chỉ sử dụng cho mục đích giáo dục trong các game bạn có quyền mod
+
+-- Khởi tạo biến
+local ESPEnabled = false
+local ESPToggleKey = Enum.KeyCode.F5 -- Phím bật/tắt ESP (có thể thay đổi)
+local PlayerESP = {}
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+-- Màu sắc cho ESP
+local ESPColors = {
+    TeamColor = true, -- Sử dụng màu team nếu true
+    FriendlyColor = Color3.fromRGB(0, 255, 0), -- Màu cho đồng đội
+    EnemyColor = Color3.fromRGB(255, 0, 0), -- Màu cho đối thủ
+    DefaultColor = Color3.fromRGB(255, 255, 0) -- Màu mặc định
+}
+
+-- Tạo phần tử ESP cho một người chơi
+function CreateESP(player)
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+        return
+    end
+    
+    local character = player.Character
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    
+    -- Kiểm tra nếu ESP đã tồn tại
+    if PlayerESP[player] then
+        return
+    end
+    
+    -- Tạo các thành phần ESP
+    local espHolder = Instance.new("Folder")
+    espHolder.Name = player.Name .. "_ESP"
+    espHolder.Parent = game.CoreGui
+    
+    -- Tạo box ESP
+    local espBox = Instance.new("BoxHandleAdornment")
+    espBox.Name = "ESPBox"
+    espBox.Adornee = rootPart
+    espBox.AlwaysOnTop = true
+    espBox.ZIndex = 10
+    espBox.Size = Vector3.new(4, 6, 4)
+    espBox.Transparency = 0.7
+    espBox.Color3 = GetPlayerColor(player)
+    espBox.Parent = espHolder
+    
+    -- Tạo tên người chơi
+    local espName = Instance.new("BillboardGui")
+    espName.Name = "ESPName"
+    espName.Adornee = rootPart
+    espName.AlwaysOnTop = true
+    espName.Size = UDim2.new(0, 200, 0, 50)
+    espName.StudsOffset = Vector3.new(0, 3.5, 0)
+    espName.Parent = espHolder
+    
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Name = "NameLabel"
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Size = UDim2.new(1, 0, 1, 0)
+    nameLabel.Text = player.Name
+    nameLabel.TextColor3 = Color3.new(1, 1, 1)
+    nameLabel.TextStrokeTransparency = 0.5
+    nameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.TextSize = 18
+    nameLabel.Parent = espName
+    
+    -- Tạo thanh health
+    local espHealth = Instance.new("BillboardGui")
+    espHealth.Name = "ESPHealth"
+    espHealth.Adornee = rootPart
+    espHealth.AlwaysOnTop = true
+    espHealth.Size = UDim2.new(0, 200, 0, 30)
+    espHealth.StudsOffset = Vector3.new(0, 2.5, 0)
+    espHealth.Parent = espHolder
+    
+    local healthBarBG = Instance.new("Frame")
+    healthBarBG.Name = "HealthBarBG"
+    healthBarBG.BackgroundColor3 = Color3.new(0, 0, 0)
+    healthBarBG.BorderSizePixel = 1
+    healthBarBG.BorderColor3 = Color3.new(1, 1, 1)
+    healthBarBG.Size = UDim2.new(1, 0, 0, 10)
+    healthBarBG.Position = UDim2.new(0, 0, 0.5, 0)
+    healthBarBG.Parent = espHealth
+    
+    local healthBar = Instance.new("Frame")
+    healthBar.Name = "HealthBar"
+    healthBar.BackgroundColor3 = Color3.new(0, 1, 0)
+    healthBar.BorderSizePixel = 0
+    healthBar.Size = UDim2.new(0.5, 0, 1, 0) -- 50% health mặc định
+    healthBar.Parent = healthBarBG
+    
+    -- Tạo khoảng cách
+    local espDistance = Instance.new("BillboardGui")
+    espDistance.Name = "ESPDistance"
+    espDistance.Adornee = rootPart
+    espDistance.AlwaysOnTop = true
+    espDistance.Size = UDim2.new(0, 200, 0, 30)
+    espDistance.StudsOffset = Vector3.new(0, 1.5, 0)
+    espDistance.Parent = espHolder
+    
+    local distanceLabel = Instance.new("TextLabel")
+    distanceLabel.Name = "DistanceLabel"
+    distanceLabel.BackgroundTransparency = 1
+    distanceLabel.Size = UDim2.new(1, 0, 1, 0)
+    distanceLabel.Text = "0 studs"
+    distanceLabel.TextColor3 = Color3.new(1, 1, 1)
+    distanceLabel.TextStrokeTransparency = 0.5
+    distanceLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+    distanceLabel.Font = Enum.Font.Gotham
+    distanceLabel.TextSize = 14
+    distanceLabel.Parent = espDistance
+    
+    -- Lưu ESP vào bảng
+    PlayerESP[player] = {
+        Holder = espHolder,
+        Box = espBox,
+        NameLabel = nameLabel,
+        HealthBar = healthBar,
+        DistanceLabel = distanceLabel,
+        Character = character
+    }
+    
+    -- Kết nối sự kiện khi nhân vật thay đổi
+    player.CharacterAdded:Connect(function(newChar)
+        if ESPEnabled then
+            wait(1) -- Đợi nhân vật tải xong
+            RemoveESP(player)
+            CreateESP(player)
+        end
+    end)
+end
+
+-- Xóa ESP của một người chơi
+function RemoveESP(player)
+    if PlayerESP[player] then
+        PlayerESP[player].Holder:Destroy()
+        PlayerESP[player] = nil
+    end
+end
+
+-- Lấy màu sắc cho người chơi
+function GetPlayerColor(player)
+    if ESPColors.TeamColor and player.Team then
+        return player.Team.TeamColor.Color
+    elseif LocalPlayer.Team and player.Team then
+        if LocalPlayer.Team == player.Team then
+            return ESPColors.FriendlyColor
+        else
+            return ESPColors.EnemyColor
+        end
+    end
+    return ESPColors.DefaultColor
+end
+
+-- Cập nhật ESP
+function UpdateESP()
+    if not ESPEnabled then return end
+    
+    for player, espData in pairs(PlayerESP) do
+        if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local rootPart = player.Character.HumanoidRootPart
+            local humanoid = player.Character:FindFirstChild("Humanoid")
+            
+            -- Cập nhật vị trí box
+            espData.Box.Adornee = rootPart
+            
+            -- Cập nhật màu sắc
+            espData.Box.Color3 = GetPlayerColor(player)
+            
+            -- Cập nhật health
+            if humanoid then
+                local healthPercent = humanoid.Health / humanoid.MaxHealth
+                espData.HealthBar.Size = UDim2.new(healthPercent, 0, 1, 0)
+                
+                -- Thay đổi màu thanh health theo % máu
+                if healthPercent > 0.5 then
+                    espData.HealthBar.BackgroundColor3 = Color3.new(0, 1, 0) -- Xanh lá
+                elseif healthPercent > 0.25 then
+                    espData.HealthBar.BackgroundColor3 = Color3.new(1, 1, 0) -- Vàng
+                else
+                    espData.HealthBar.BackgroundColor3 = Color3.new(1, 0, 0) -- Đỏ
+                end
+            end
+            
+            -- Cập nhật khoảng cách
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local distance = (LocalPlayer.Character.HumanoidRootPart.Position - rootPart.Position).Magnitude
+                espData.DistanceLabel.Text = tostring(math.floor(distance)) .. " studs"
+            end
+        else
+            -- Nếu không có nhân vật, xóa ESP
+            RemoveESP(player)
+        end
+    end
+end
+
+-- Bật ESP
+function EnableESP()
+    ESPEnabled = true
+    
+    -- Tạo ESP cho tất cả người chơi
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            CreateESP(player)
+        end
+    end
+    
+    -- Kết nối sự kiện khi có người chơi mới tham gia
+    Players.PlayerAdded:Connect(function(player)
+        if ESPEnabled then
+            CreateESP(player)
+        end
+    end)
+    
+    -- Kết nối sự kiện khi người chơi rời đi
+    Players.PlayerRemoving:Connect(function(player)
+        RemoveESP(player)
+    end)
+    
+    -- Thông báo
+    print("ESP Enabled - Press " .. tostring(ESPToggleKey) .. " to toggle")
+end
+
+-- Tắt ESP
+function DisableESP()
+    ESPEnabled = false
+    
+    -- Xóa tất cả ESP
+    for player, _ in pairs(PlayerESP) do
+        RemoveESP(player)
+    end
+    
+    PlayerESP = {}
+    
+    -- Thông báo
+    print("ESP Disabled - Press " .. tostring(ESPToggleKey) .. " to toggle")
+end
+
+-- Hàm toggle ESP
+function ToggleESP()
+    if ESPEnabled then
+        DisableESP()
+    else
+        EnableESP()
+    end
+end
+
+-- Thiết lập sự kiện bàn phím
+local UserInputService = game:GetService("UserInputService")
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == ESPToggleKey then
+        ToggleESP()
+    end
+end)
+
+-- Tạo giao diện thông báo
+function CreateNotification()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "ESPNotification"
+    screenGui.Parent = game.CoreGui
+    
+    local frame = Instance.new("Frame")
+    frame.Name = "NotificationFrame"
+    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    frame.BackgroundTransparency = 0.3
+    frame.BorderSizePixel = 0
+    frame.Size = UDim2.new(0, 300, 0, 100)
+    frame.Position = UDim2.new(0.5, -150, 0, 10)
+    frame.Parent = screenGui
+    
+    local title = Instance.new("TextLabel")
+    title.Name = "Title"
+    title.BackgroundTransparency = 1
+    title.Size = UDim2.new(1, 0, 0, 40)
+    title.Position = UDim2.new(0, 0, 0, 10)
+    title.Text = "ESP Script Loaded"
+    title.TextColor3 = Color3.new(1, 1, 1)
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 20
+    title.Parent = frame
+    
+    local content = Instance.new("TextLabel")
+    content.Name = "Content"
+    content.BackgroundTransparency = 1
+    content.Size = UDim2.new(1, 0, 0, 40)
+    content.Position = UDim2.new(0, 0, 0, 50)
+    content.Text = "Press F5 to toggle ESP"
+    content.TextColor3 = Color3.new(1, 1, 1)
+    content.Font = Enum.Font.Gotham
+    content.TextSize = 16
+    content.Parent = frame
+    
+    -- Tự động ẩn thông báo sau 5 giây
+    wait(5)
+    screenGui:Destroy()
+end
+
+-- Kết nối vòng lặp cập nhật
+RunService.Heartbeat:Connect(UpdateESP)
+
+-- Tạo thông báo khi script chạy
+CreateNotification()
+
+-- Thông báo trong console
+print("=====================================")
+print("ESP Script Loaded Successfully!")
+print("Toggle Key: " .. tostring(ESPToggleKey))
+print("Team Colors: " .. tostring(ESPColors.TeamColor))
+print("=====================================")
+print("Instructions:")
+print("1. Press " .. tostring(ESPToggleKey) .. " to toggle ESP on/off")
+print("2. Green = Friendly, Red = Enemy")
+print("3. Health bars show player health")
+print("4. Distance is shown below name")
+print("=====================================")
