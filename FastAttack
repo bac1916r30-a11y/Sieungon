@@ -1,0 +1,299 @@
+-- Auto Attack Script
+-- Version: 1.0 (Auto Attack Only)
+
+-- Services
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local CollectionService = game:GetService("CollectionService")
+
+-- Variables
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+-- Global Variables
+_G.AutoAttack = true -- Mặc định bật Auto Attack
+
+--------------------------------------------------------------------
+-- GUI MAIN (SIMPLIFIED)
+--------------------------------------------------------------------
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AutoAttackGui"
+screenGui.Parent = PlayerGui
+
+-- Auto Attack Toggle Button
+local autoAttackBtn = Instance.new("TextButton")
+autoAttackBtn.Size = UDim2.new(0, 150, 0, 50)
+autoAttackBtn.Position = UDim2.new(0, 20, 0, 20)
+autoAttackBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+autoAttackBtn.TextColor3 = Color3.new(1, 1, 1)
+autoAttackBtn.Font = Enum.Font.SourceSansBold
+autoAttackBtn.TextSize = 24
+autoAttackBtn.Text = "Auto Attack: ON"
+autoAttackBtn.Parent = screenGui
+
+-- Hide/Show Button
+local toggleHide = Instance.new("TextButton")
+toggleHide.Size = UDim2.new(0, 25, 0, 25)
+toggleHide.Position = UDim2.new(1, -65, 0, 5)
+toggleHide.BackgroundColor3 = Color3.fromRGB(50, 200, 255)
+toggleHide.TextColor3 = Color3.new(1,1,1)
+toggleHide.Text = "-"
+toggleHide.Parent = screenGui
+
+-- Close Button
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 25, 0, 25)
+closeBtn.Position = UDim2.new(1, -95, 0, 5)
+closeBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+closeBtn.TextColor3 = Color3.new(1,1,1)
+closeBtn.Text = "X"
+closeBtn.ZIndex = 3
+closeBtn.Parent = screenGui
+
+-- Popup Confirmation
+local popup = Instance.new("Frame")
+popup.Size = UDim2.new(0, 300, 0, 150)
+popup.Position = UDim2.new(0.5, -150, 0.5, -75)
+popup.AnchorPoint = Vector2.new(0.5, 0.5)
+popup.BackgroundColor3 = Color3.fromRGB(50,50,50)
+popup.BorderSizePixel = 2
+popup.BorderColor3 = Color3.fromRGB(100,100,100)
+popup.Visible = false
+popup.ZIndex = 10
+popup.Parent = screenGui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1,0,0,40)
+title.Position = UDim2.new(0,0,0,10)
+title.Text = "Bạn có muốn xóa GUI?"
+title.TextColor3 = Color3.new(1,1,1)
+title.BackgroundTransparency = 1
+title.Font = Enum.Font.SourceSansBold
+title.TextSize = 20
+title.ZIndex = 11
+title.Parent = popup
+
+local noBtn = Instance.new("TextButton")
+noBtn.Size = UDim2.new(0.5,-5,0,40)
+noBtn.Position = UDim2.new(0,5,1,-45)
+noBtn.Text = "Không"
+noBtn.BackgroundColor3 = Color3.fromRGB(100,200,100)
+noBtn.TextColor3 = Color3.new(1,1,1)
+noBtn.ZIndex = 11
+noBtn.Parent = popup
+
+local yesBtn = Instance.new("TextButton")
+yesBtn.Size = UDim2.new(0.5,-5,0,40)
+yesBtn.Position = UDim2.new(0.5,0,1,-45)
+yesBtn.Text = "Có"
+yesBtn.BackgroundColor3 = Color3.fromRGB(200,100,100)
+yesBtn.TextColor3 = Color3.new(1,1,1)
+yesBtn.ZIndex = 11
+yesBtn.Parent = popup
+
+local overlay = Instance.new("TextButton")
+overlay.Size = UDim2.new(1, 0, 1, 0)
+overlay.BackgroundColor3 = Color3.new(0, 0, 0)
+overlay.BackgroundTransparency = 0.5
+overlay.Text = ""
+overlay.Visible = false
+overlay.ZIndex = 9
+overlay.Parent = screenGui
+
+--------------------------------------------------------------------
+-- GUI EVENTS
+--------------------------------------------------------------------
+-- Auto Attack Toggle
+autoAttackBtn.MouseButton1Click:Connect(function()
+    _G.AutoAttack = not _G.AutoAttack
+    if _G.AutoAttack then
+        autoAttackBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+        autoAttackBtn.Text = "Auto Attack: ON"
+    else
+        autoAttackBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 100)
+        autoAttackBtn.Text = "Auto Attack: OFF"
+    end
+end)
+
+-- Hide/Show Button
+toggleHide.MouseButton1Click:Connect(function()
+    autoAttackBtn.Visible = not autoAttackBtn.Visible
+    toggleHide.Text = autoAttackBtn.Visible and "-" or "+"
+end)
+
+-- Close Button
+closeBtn.MouseButton1Click:Connect(function()
+    popup.Visible = true
+    overlay.Visible = true
+end)
+
+noBtn.MouseButton1Click:Connect(function()
+    popup.Visible = false
+    overlay.Visible = false
+end)
+
+yesBtn.MouseButton1Click:Connect(function()
+    _G.AutoAttack = false
+    screenGui:Destroy()
+end)
+
+overlay.MouseButton1Click:Connect(function()
+    popup.Visible = false
+    overlay.Visible = false
+end)
+
+--------------------------------------------------------------------
+-- AUTO ATTACK SYSTEM
+--------------------------------------------------------------------
+local function c5(e, d)
+    local f = {}
+    for g, h in ipairs(Workspace.Enemies:GetChildren()) do
+        if h:IsA("Model") and h:FindFirstChild("Humanoid") and h.Humanoid.Health > 0 and h:FindFirstChild("HumanoidRootPart") then
+            local i = (h.HumanoidRootPart.Position - e.Position).Magnitude
+            if i <= d then
+                table.insert(f, h)
+            end
+        end
+    end
+    return f
+end
+
+local function AttackNoCoolDown()
+    local I = Player
+    local e = I.Character
+    if not e then
+        return
+    end
+    local K = nil
+    for I, e in ipairs(e:GetChildren()) do
+        if e:IsA("Tool") then
+            K = e
+            break
+        end
+    end
+    if not K then
+        return
+    end
+    local n = c5(e:FindFirstChild("HumanoidRootPart") or e.PrimaryPart, 60)
+    if #n == 0 then
+        return
+    end
+    local d = ReplicatedStorage
+    local z = d:FindFirstChild("Modules")
+    if not z then
+        return
+    end
+    local H = ((d:WaitForChild("Modules")):WaitForChild("Net")):WaitForChild("RE/RegisterAttack")
+    local F = ((d:WaitForChild("Modules")):WaitForChild("Net")):WaitForChild("RE/RegisterHit")
+    if not H or not F then
+        return
+    end
+    local Q, X = {}, nil
+    for I, e in ipairs(n) do
+        if not e:GetAttribute("IsBoat") then
+            local I = {
+                "RightLowerArm",
+                "RightUpperArm",
+                "LeftLowerArm",
+                "LeftUpperArm",
+                "RightHand",
+                "LeftHand",
+            }
+            local K = e:FindFirstChild(I[math.random(#I)]) or e.PrimaryPart
+            if K then
+                table.insert(Q, { e, K })
+                X = K
+            end
+        end
+    end
+    if not X then
+        return
+    end
+    H:FireServer(0)
+    local P = I:FindFirstChild("PlayerScripts")
+    if not P then
+        return
+    end
+    local w = P:FindFirstChildOfClass("LocalScript")
+    while not w do
+        P.ChildAdded:Wait()
+        w = P:FindFirstChildOfClass("LocalScript")
+    end
+    local O
+    if getsenv then
+        local I, e = pcall(getsenv, w)
+        if I and e then
+            O = e._G.SendHitsToServer
+        end
+    end
+    local G, J = pcall(function()
+        return (require(z.Flags)).COMBAT_REMOTE_THREAD or false
+    end)
+    if G and (J and O) then
+        O(X, Q)
+    elseif G and not J then
+        F:FireServer(X, Q)
+    end
+end
+
+local function get_Monster()
+    for I, e in pairs(Workspace.Enemies:GetChildren()) do
+        local K = e:FindFirstChild("UpperTorso") or e:FindFirstChild("Head")
+        if e:FindFirstChild("HumanoidRootPart", true) and K then
+            if (e.Head.Position - Player.Character.HumanoidRootPart.Position).Magnitude <= 50 then
+                return true, K.Position
+            end
+        end
+    end
+    for I, e in pairs(Workspace.SeaBeasts:GetChildren()) do
+        if e:FindFirstChild("HumanoidRootPart") and (e:FindFirstChild("Health") and e.Health.Value > 0) then
+            return true, e.HumanoidRootPart.Position
+        end
+    end
+    for I, e in pairs(Workspace.Enemies:GetChildren()) do
+        if e:FindFirstChild("Health") and (e.Health.Value > 0 and e:FindFirstChild("VehicleSeat")) then
+            return true, e.Engine.Position
+        end
+    end
+end
+
+local function Actived()
+    local I = Player.Character:FindFirstChildOfClass("Tool")
+    if I then
+        for I, e in next, getconnections(I.Activated) do
+            if typeof(e.Function) == "function" then
+                getupvalues(e.Function)
+            end
+        end
+    end
+end
+
+-- Main Auto Attack Loop
+task.spawn(function()
+    RunService.Heartbeat:Connect(function()
+        pcall(function()
+            if not _G.AutoAttack then
+                return
+            end
+            AttackNoCoolDown()
+            local I = Player.Character:FindFirstChildOfClass("Tool")
+            if not I then return end
+            local e = I.ToolTip
+            local K, n = get_Monster()
+            if e == "Blox Fruit" then
+                if K then
+                    local e = I:FindFirstChild("LeftClickRemote")
+                    if e then
+                        Actived()
+                        e:FireServer(Vector3.new(.01, -500, .01), 1, true)
+                        e:FireServer(false)
+                    end
+                end
+            end
+        end)
+    end)
+end)
