@@ -1,0 +1,7 @@
+local Games = loadstring(game:HttpGet("https://raw.githubusercontent.com/bac1916r30-a11y/Sieungon/refs/heads/main/Ngon"))()
+
+local URL = Games[game.GameId]
+
+if URL then
+  loadstring(game:HttpGet(URL))()
+end
