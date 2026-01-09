@@ -1,24 +1,898 @@
--- Đặt trong StarterPlayerScripts hoặc StarterGui
+-- Script Auto Fly + Auto Attack (FIXED NO CLIP)
 local Players = game:GetService("Players")
-local Player = Players.LocalPlayer
-local PlayerGui = Player:WaitForChild("PlayerGui")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local MarketplaceService = game:GetService("MarketplaceService")
 
--- Biến kiểm tra trạng thái
-local isGUIVisible = true
-local isMobile = UserInputService.TouchEnabled
-local currentTab = "Main"
+local plr = Players.LocalPlayer
+local flyActive = true
+local targetPlayer = nil
+local flyConnection = nil
+local block = nil
+local heightOffset = 5
+local blacklist = {}
+local healthCheckConnection = nil
+local hopPending = false
+local isRespawning = false
 
--- Danh sách tabs
-local tabsData = {
-    {Name = "Main", Title = "General", Icon = "🏠"},
-    {Name = "Settings", Title = "Settings", Icon = "⚙️"},
-    {Name = "Melee", Title = "Fighting Style", Icon = "🥊"},
-    {Name = "Quests", Title = "Items Farm", Icon = "📦"},
+-- Biến cho auto attack và auto skills
+_G.AutoAttack = true
+_G.AttackPlayers = true
+_G.RaceClickAutov4 = true
+_G.SelectWeapon = nil
+local Sec = 1 -- Delay cho Buso
+local Boud = true -- Auto Buso
+
+-- Tạo UI Bên Trái
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "FlyControlUI"
+screenGui.Parent = CoreGui
+screenGui.ResetOnSpawn = false
+
+-- Container chính (bên trái màn hình)
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 280, 0, 220)
+mainFrame.Position = UDim2.new(0, 10, 0.5, -110)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+mainFrame.BackgroundTransparency = 0.2
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = mainFrame
+
+local title = Instance.new("TextLabel")
+title.Name = "Title"
+title.Size = UDim2.new(1, 0, 0, 35)
+title.Position = UDim2.new(0, 0, 0, 0)
+title.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+title.BackgroundTransparency = 0.3
+title.Text = "🚀 AUTO FLY"
+title.TextColor3 = Color3.fromRGB(0, 191, 255)
+title.TextSize = 16
+title.Font = Enum.Font.GothamBold
+title.Parent = mainFrame
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 8)
+titleCorner.Parent = title
+
+local playerFrame = Instance.new("Frame")
+playerFrame.Name = "PlayerFrame"
+playerFrame.Size = UDim2.new(1, -20, 0, 50)
+playerFrame.Position = UDim2.new(0, 10, 0, 45)
+playerFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+playerFrame.BackgroundTransparency = 0.3
+playerFrame.Parent = mainFrame
+
+local playerCorner = Instance.new("UICorner")
+playerCorner.CornerRadius = UDim.new(0, 6)
+playerCorner.Parent = playerFrame
+
+local targetIcon = Instance.new("ImageLabel")
+targetIcon.Name = "TargetIcon"
+targetIcon.Size = UDim2.new(0, 24, 0, 24)
+targetIcon.Position = UDim2.new(0, 10, 0.5, -12)
+targetIcon.BackgroundTransparency = 1
+targetIcon.Image = "rbxassetid://3926305904"
+targetIcon.ImageRectOffset = Vector2.new(964, 324)
+targetIcon.ImageRectSize = Vector2.new(36, 36)
+targetIcon.ImageColor3 = Color3.fromRGB(0, 191, 255)
+targetIcon.Parent = playerFrame
+
+local playerNameLabel = Instance.new("TextLabel")
+playerNameLabel.Name = "PlayerName"
+playerNameLabel.Size = UDim2.new(1, -50, 1, 0)
+playerNameLabel.Position = UDim2.new(0, 40, 0, 0)
+playerNameLabel.BackgroundTransparency = 1
+playerNameLabel.Text = "Đang tìm target..."
+playerNameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+playerNameLabel.TextSize = 14
+playerNameLabel.Font = Enum.Font.Gotham
+playerNameLabel.TextXAlignment = Enum.TextXAlignment.Left
+playerNameLabel.Parent = playerFrame
+
+local healthLabel = Instance.new("TextLabel")
+healthLabel.Name = "HealthLabel"
+healthLabel.Size = UDim2.new(1, -50, 0, 20)
+healthLabel.Position = UDim2.new(0, 40, 0, 25)
+healthLabel.BackgroundTransparency = 1
+healthLabel.Text = "Máu: --"
+healthLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+healthLabel.TextSize = 12
+healthLabel.Font = Enum.Font.GothamMedium
+healthLabel.TextXAlignment = Enum.TextXAlignment.Left
+healthLabel.Parent = playerFrame
+
+local buttonContainer = Instance.new("Frame")
+buttonContainer.Name = "ButtonContainer"
+buttonContainer.Size = UDim2.new(1, -20, 0, 110)
+buttonContainer.Position = UDim2.new(0, 10, 0, 105)
+buttonContainer.BackgroundTransparency = 1
+buttonContainer.Parent = mainFrame
+
+local function createButton(name, text, color, position)
+    local btn = Instance.new("TextButton")
+    btn.Name = name
+    btn.Size = UDim2.new(1, 0, 0, 30)
+    btn.Position = position
+    btn.BackgroundColor3 = color
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 14
+    btn.Font = Enum.Font.GothamBold
+    btn.Parent = buttonContainer
+    
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 6)
+    btnCorner.Parent = btn
+    
+    return btn
+end
+
+local blacklistBtn = createButton("BlacklistBtn", "➕ Thêm Blacklist", Color3.fromRGB(255, 100, 100), UDim2.new(0, 0, 0, 0))
+local hopBtn = createButton("HopBtn", "🔄 Hop Server", Color3.fromRGB(100, 100, 255), UDim2.new(0, 0, 0, 35))
+local infoLabel = createButton("InfoLabel", "🟢 Auto: ON | ⚔️ Attack: ON", Color3.fromRGB(60, 60, 70), UDim2.new(0, 0, 0, 70))
+infoLabel.Text = "🟢 Auto: ON | ⚔️ Attack: ON"
+infoLabel.AutoButtonColor = false
+
+-- ==================== FIXED NO CLIP SYSTEM ====================
+
+local noclipConnection = nil
+local originalCanCollide = {}
+
+-- Hàm bật noclip mạnh mẽ và ổn định
+function enableNoclip()
+    if not plr.Character then return end
+    
+    -- Hủy noclip cũ nếu có
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
+    end
+    
+    -- Xóa BodyVelocity cũ
+    local bodyVelocity = plr.Character:FindFirstChild("HumanoidRootPart"):FindFirstChild("BodyClip")
+    if bodyVelocity then
+        bodyVelocity:Destroy()
+    end
+    
+    -- Lưu trạng thái CanCollide gốc và đặt thành false
+    for _, part in pairs(plr.Character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            originalCanCollide[part] = part.CanCollide
+            part.CanCollide = false
+        end
+    end
+    
+    -- Tạo BodyVelocity mới
+    local noclip = Instance.new("BodyVelocity")
+    noclip.Name = "BodyClip"
+    noclip.Parent = plr.Character.HumanoidRootPart
+    noclip.MaxForce = Vector3.new(100000, 100000, 100000)
+    noclip.Velocity = Vector3.new(0, 0, 0)
+    
+    -- Kết nối Heartbeat để duy trì noclip
+    noclipConnection = RunService.Heartbeat:Connect(function()
+        if not plr.Character or not flyActive then 
+            if noclipConnection then
+                noclipConnection:Disconnect()
+            end
+            return 
+        end
+        
+        -- Đảm bảo tất cả parts không thể va chạm
+        for _, part in pairs(plr.Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+        
+        -- Đảm bảo BodyVelocity tồn tại
+        if not plr.Character.HumanoidRootPart:FindFirstChild("BodyClip") then
+            local newNoclip = Instance.new("BodyVelocity")
+            newNoclip.Name = "BodyClip"
+            newNoclip.Parent = plr.Character.HumanoidRootPart
+            newNoclip.MaxForce = Vector3.new(100000, 100000, 100000)
+            newNoclip.Velocity = Vector3.new(0, 0, 0)
+        end
+    end)
+    
+    print("✅ Noclip đã được bật")
+end
+
+-- Hàm tắt noclip
+function disableNoclip()
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
+    end
+    
+    if not plr.Character then return end
+    
+    -- Xóa BodyVelocity
+    local bodyVelocity = plr.Character:FindFirstChild("HumanoidRootPart"):FindFirstChild("BodyClip")
+    if bodyVelocity then
+        bodyVelocity:Destroy()
+    end
+    
+    -- Khôi phục CanCollide
+    for part, canCollide in pairs(originalCanCollide) do
+        if part and part.Parent then
+            part.CanCollide = canCollide
+        end
+    end
+    originalCanCollide = {}
+    
+    print("❌ Noclip đã tắt")
+end
+
+-- ==================== AUTO ATTACK FIXED FUNCTIONS ====================
+
+-- Hàm lấy tất cả mục tiêu (bao gồm cả quái và người chơi)
+local function getAllTargets(position, radius)
+    local targets = {}
+    
+    -- Tìm quái vật trong Workspace
+    local function findEnemiesInFolder(folderName)
+        local folder = Workspace:FindFirstChild(folderName)
+        if folder then
+            for _, enemy in ipairs(folder:GetChildren()) do
+                if enemy:IsA("Model") then
+                    local humanoid = enemy:FindFirstChild("Humanoid")
+                    local rootPart = enemy:FindFirstChild("HumanoidRootPart")
+                    if humanoid and rootPart and humanoid.Health > 0 then
+                        local distance = (rootPart.Position - position).Magnitude
+                        if distance <= radius then
+                            table.insert(targets, {Model = enemy, Type = "Mob"})
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    -- Tìm trong các folder có thể chứa quái
+    findEnemiesInFolder("Enemies")
+    findEnemiesInFolder("_ENEMIES")
+    findEnemiesInFolder("Mobs")
+    findEnemiesInFolder("NPCs")
+    
+    -- Tìm trực tiếp trong Workspace
+    for _, enemy in ipairs(Workspace:GetChildren()) do
+        if enemy:IsA("Model") and enemy.Name:lower():find("bandit") 
+           or enemy.Name:lower():find("pirate") 
+           or enemy.Name:lower():find("assassin") 
+           or enemy.Name:lower():find("marine") then
+            
+            local humanoid = enemy:FindFirstChild("Humanoid")
+            local rootPart = enemy:FindFirstChild("HumanoidRootPart")
+            if humanoid and rootPart and humanoid.Health > 0 then
+                local distance = (rootPart.Position - position).Magnitude
+                if distance <= radius then
+                    table.insert(targets, {Model = enemy, Type = "Mob"})
+                end
+            end
+        end
+    end
+    
+    -- Lấy người chơi khác nếu được bật
+    if _G.AttackPlayers then
+        for _, otherPlayer in ipairs(Players:GetPlayers()) do
+            if otherPlayer ~= plr and otherPlayer.Character then
+                local character = otherPlayer.Character
+                local humanoid = character:FindFirstChild("Humanoid")
+                local rootPart = character:FindFirstChild("HumanoidRootPart")
+                if humanoid and rootPart and humanoid.Health > 0 then
+                    local distance = (rootPart.Position - position).Magnitude
+                    if distance <= radius then
+                        table.insert(targets, {Model = character, Type = "Player"})
+                    end
+                end
+            end
+        end
+    end
+    
+    return targets
+end
+
+-- Hàm tấn công đơn giản (dùng RemoteEvent)
+local function simpleAttack(target)
+    if not target or not target.Model then return end
+    
+    local character = plr.Character
+    if not character then return end
+    
+    -- Tìm weapon
+    local weapon = character:FindFirstChildOfClass("Tool")
+    if not weapon then
+        -- Kiểm tra trong backpack
+        if plr.Backpack then
+            for _, tool in ipairs(plr.Backpack:GetChildren()) do
+                if tool:IsA("Tool") then
+                    weapon = tool
+                    tool.Parent = character
+                    wait(0.1)
+                    break
+                end
+            end
+        end
+    end
+    
+    if not weapon then return end
+    
+    -- Tìm remote để tấn công
+    local function findAttackRemote()
+        -- Thử tìm trong ReplicatedStorage
+        local modules = ReplicatedStorage:FindFirstChild("Modules")
+        if modules then
+            local net = modules:FindFirstChild("Net")
+            if net then
+                local registerAttack = net:FindFirstChild("RE/RegisterAttack")
+                local registerHit = net:FindFirstChild("RE/RegisterHit")
+                if registerAttack and registerHit then
+                    return registerAttack, registerHit
+                end
+            end
+        end
+        
+        -- Thử tìm trực tiếp trong ReplicatedStorage
+        local remotes = ReplicatedStorage:GetChildren()
+        for _, remote in ipairs(remotes) do
+            if remote:IsA("RemoteEvent") then
+                if remote.Name:lower():find("attack") 
+                   or remote.Name:lower():find("hit") 
+                   or remote.Name:lower():find("damage") 
+                   or remote.Name:lower():find("combat") then
+                    return remote
+                end
+            end
+        end
+        
+        return nil
+    end
+    
+    -- Thực hiện tấn công
+    local attackRemote, hitRemote = findAttackRemote()
+    if attackRemote and hitRemote then
+        -- Fire registerAttack
+        pcall(function()
+            attackRemote:FireServer()
+        end)
+        
+        -- Chọn bộ phận để tấn công
+        local hitPart = target.Model:FindFirstChild("HumanoidRootPart") 
+                       or target.Model:FindFirstChild("Head") 
+                       or target.Model:FindFirstChild("Torso")
+                       or target.Model.PrimaryPart
+        
+        if hitPart then
+            pcall(function()
+                -- Tạo hitTargets array
+                local hitTargets = {{target.Model, hitPart}}
+                hitRemote:FireServer(hitPart, hitTargets)
+                
+                -- Gửi click event để kích hoạt attack animation
+                if weapon:FindFirstChild("Activated") then
+                    weapon.Activated:Fire()
+                end
+                
+                -- Fire click remote nếu có
+                local clickRemote = weapon:FindFirstChild("ClickRemote") 
+                                  or weapon:FindFirstChild("LeftClickRemote")
+                                  or weapon:FindFirstChild("RightClickRemote")
+                
+                if clickRemote then
+                    clickRemote:FireServer()
+                end
+            end)
+        end
+    elseif attackRemote then
+        -- Nếu chỉ có 1 remote
+        pcall(function()
+            attackRemote:FireServer(target.Model)
+        end)
+    end
+    
+    -- Thử kích hoạt tool trực tiếp
+    if weapon:FindFirstChild("Activated") then
+        pcall(function()
+            weapon.Activated:Fire()
+        end)
+    end
+end
+
+-- Hàm kiểm tra và tấn công mục tiêu
+local function checkAndAttack()
+    if not _G.AutoAttack then return end
+    
+    local character = plr.Character
+    if not character then return end
+    
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return end
+    
+    -- Lấy tất cả mục tiêu trong bán kính 50 studs
+    local targets = getAllTargets(rootPart.Position, 50)
+    
+    if #targets > 0 then
+        -- Chọn mục tiêu gần nhất
+        local nearestTarget = nil
+        local nearestDistance = math.huge
+        
+        for _, target in ipairs(targets) do
+            local targetRoot = target.Model:FindFirstChild("HumanoidRootPart")
+            if targetRoot then
+                local distance = (targetRoot.Position - rootPart.Position).Magnitude
+                if distance < nearestDistance then
+                    nearestDistance = distance
+                    nearestTarget = target
+                end
+            end
+        end
+        
+        if nearestTarget then
+            -- Đảm bảo đang nhìn về mục tiêu
+            local targetRoot = nearestTarget.Model:FindFirstChild("HumanoidRootPart")
+            if targetRoot then
+                character:SetPrimaryPartCFrame(
+                    CFrame.new(rootPart.Position, Vector3.new(
+                        targetRoot.Position.X, 
+                        rootPart.Position.Y, 
+                        targetRoot.Position.Z
+                    ))
+                )
+                
+                -- Thực hiện tấn công
+                simpleAttack(nearestTarget)
+                
+                -- Log để debug
+                print("⚔️ Đang tấn công: " .. nearestTarget.Model.Name .. " (" .. nearestTarget.Type .. ")")
+            end
+        end
+    end
+end
+
+-- ==================== FLY FUNCTIONS ====================
+
+-- Tạo block ảo cho tween
+function createVirtualBlock()
+    if block and block.Parent then 
+        block:Destroy() 
+    end
+    
+    block = Instance.new("Part")
+    block.Name = "VirtualFlyBlock"
+    block.Size = Vector3.new(1, 1, 1)
+    block.Anchored = true
+    block.CanCollide = false
+    block.Transparency = 1
+    block.Parent = workspace
+    
+    return block
+end
+
+-- Tìm người chơi gần nhất không trong danh sách đen
+function getNearestPlayer()
+    local nearestPlayer = nil
+    local nearestDistance = math.huge
+    local localRoot = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+    
+    if not localRoot then return nil end
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= plr and not blacklist[player] then
+            if player.Character then
+                local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
+                if targetRoot then
+                    local humanoid = player.Character:FindFirstChild("Humanoid")
+                    if humanoid and humanoid.Health > 0 then
+                        local distance = (targetRoot.Position - localRoot.Position).Magnitude
+                        if distance < nearestDistance then
+                            nearestDistance = distance
+                            nearestPlayer = player
+                        end
+                    else
+                        blacklist[player] = true
+                    end
+                end
+            end
+        end
+    end
+    
+    return nearestPlayer
+end
+
+-- Kiểm tra máu của target player
+function checkTargetHealth()
+    if not targetPlayer or not targetPlayer.Character then
+        return false
+    end
+    
+    local humanoid = targetPlayer.Character:FindFirstChild("Humanoid")
+    if not humanoid or humanoid.Health <= 0 then
+        blacklist[targetPlayer] = true
+        return false
+    end
+    
+    return true
+end
+
+-- Bật highlight
+function enableHighlight()
+    if not plr.Character then return end
+    
+    if plr.Character:FindFirstChild("highlight") then
+        plr.Character:FindFirstChild("highlight"):Destroy()
+    end
+    
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "highlight"
+    highlight.Enabled = true
+    highlight.FillColor = Color3.fromRGB(0, 191, 255)
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = 0.2
+    highlight.Parent = plr.Character
+end
+
+-- Tính toán vị trí đứng trên đầu player
+function getHeadPosition(targetPlayer)
+    if not targetPlayer or not targetPlayer.Character then
+        return nil
+    end
+    
+    local character = targetPlayer.Character
+    local head = character:FindFirstChild("Head")
+    if head then
+        return head.Position + Vector3.new(0, heightOffset, 0)
+    end
+    
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    if rootPart then
+        return rootPart.Position + Vector3.new(0, 4 + heightOffset, 0)
+    end
+    
+    return nil
+end
+
+-- Hàm bay không delay - bám sát target và đứng trên đầu
+function startFlying()
+    if flyConnection then
+        flyConnection:Disconnect()
+        flyConnection = nil
+    end
+    
+    if not block then
+        block = createVirtualBlock()
+    end
+    
+    local character = plr.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then
+        return
+    end
+    
+    local rootPart = character.HumanoidRootPart
+    
+    -- Đảm bảo noclip đang hoạt động trước khi bay
+    if not noclipConnection then
+        enableNoclip()
+    end
+    
+    -- Cập nhật vị trí block theo real-time
+    flyConnection = RunService.Heartbeat:Connect(function(deltaTime)
+        if not flyActive or not targetPlayer or not targetPlayer.Character then
+            return
+        end
+        
+        if not checkTargetHealth() then
+            local newTarget = getNearestPlayer()
+            if newTarget then
+                targetPlayer = newTarget
+                updateUI()
+            else
+                return
+            end
+        end
+        
+        local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not targetRoot then
+            return
+        end
+        
+        -- Đảm bảo noclip luôn hoạt động trong khi bay
+        for _, part in pairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+        
+        local targetHeadPos = getHeadPosition(targetPlayer)
+        if not targetHeadPos then
+            targetHeadPos = targetRoot.Position + Vector3.new(0, heightOffset, 0)
+        end
+        
+        local currentPos = rootPart.Position
+        local direction = (targetHeadPos - currentPos).Unit
+        local distance = (targetHeadPos - currentPos).Magnitude
+        
+        local speed = 300
+        local moveDistance = math.min(speed * deltaTime, distance)
+        
+        if distance > 2 then
+            local newPos = currentPos + (direction * moveDistance)
+            local lookAtPos = Vector3.new(targetRoot.Position.X, newPos.Y, targetRoot.Position.Z)
+            rootPart.CFrame = CFrame.new(newPos, lookAtPos)
+            block.CFrame = rootPart.CFrame
+        else
+            local finalLookAt = Vector3.new(targetRoot.Position.X, targetHeadPos.Y, targetRoot.Position.Z)
+            rootPart.CFrame = CFrame.new(targetHeadPos, finalLookAt)
+            block.CFrame = rootPart.CFrame
+        end
+    end)
+end
+
+-- Dừng bay
+function stopFlying()
+    flyActive = false
+    
+    if flyConnection then
+        flyConnection:Disconnect()
+        flyConnection = nil
+    end
+    
+    if noclipConnection then
+        disableNoclip()
+    end
+    
+    print("✈️ Đã dừng bay")
+end
+
+-- Cập nhật UI
+function updateUI()
+    if targetPlayer then
+        playerNameLabel.Text = targetPlayer.Name
+        if targetPlayer.Character then
+            local humanoid = targetPlayer.Character:FindFirstChild("Humanoid")
+            if humanoid then
+                healthLabel.Text = "Máu: " .. math.floor(humanoid.Health) .. "/" .. math.floor(humanoid.MaxHealth)
+            end
+        end
+    else
+        playerNameLabel.Text = "Đang tìm target..."
+        healthLabel.Text = "Máu: --"
+    end
+end
+
+-- AUTO SKILLS FUNCTIONS ------------------------------------------------------
+
+-- Tự động trang bị Blox Fruit
+local function equipBloxFruit()
+    if plr.Backpack then
+        for _, v in pairs(plr.Backpack:GetChildren()) do
+            if v.ToolTip == "Blox Fruit" then
+                if plr.Backpack:FindFirstChild(tostring(v.Name)) then
+                    _G.SelectWeapon = v.Name
+                    v.Parent = plr.Character
+                    print("🍇 Đã trang bị Blox Fruit: " .. v.Name)
+                    break
+                end
+            end
+        end
+    end
+end
+
+-- Auto Buso Haki
+local function autoBuso()
+    pcall(function()
+        if Boud then
+            local _HasBuso = {"HasBuso", "Buso"}
+            if not plr.Character:FindFirstChild(_HasBuso[1]) then
+                ReplicatedStorage.Remotes.CommF_:InvokeServer(_HasBuso[2])
+                print("🛡️ Đã bật Buso Haki")
+            end
+        end
+    end)
+end
+
+-- Auto Race V4
+local function autoRaceV4()
+    pcall(function()
+        if _G.RaceClickAutov4 then
+            if plr.Character:FindFirstChild("RaceEnergy") then
+                if plr.Character:FindFirstChild("RaceEnergy").Value == 1 then
+                    print("⚡ Đã kích hoạt Race V4")
+                end
+            end
+        end
+    end)
+end
+
+-- BUTTON FUNCTIONS -----------------------------------------------------------
+
+blacklistBtn.MouseButton1Click:Connect(function()
+    if targetPlayer then
+        blacklist[targetPlayer] = true
+        print("🚫 Đã thêm " .. targetPlayer.Name .. " vào blacklist")
+        
+        local newTarget = getNearestPlayer()
+        if newTarget then
+            targetPlayer = newTarget
+            updateUI()
+        else
+            targetPlayer = nil
+            updateUI()
+        end
+    end
+end)
+
+hopBtn.MouseButton1Click:Connect(function()
+    print("🔄 Đang tìm server mới...")
+    -- Thêm logic hop server ở đây
+end)
+
+-- HỆ THỐNG HỒI SINH ---------------------------------------------------------
+
+local function onCharacterAdded(character)
+    isRespawning = true
+    print("🔄 Đang hồi sinh...")
+    
+    -- Chờ character load hoàn tất
+    wait(2)
+    
+    if flyActive then
+        print("🚀 Tiếp tục bay sau khi hồi sinh...")
+        
+        -- Bật lại các hiệu ứng
+        enableNoclip()
+        enableHighlight()
+        
+        -- Tìm target mới
+        local newTarget = getNearestPlayer()
+        if newTarget then
+            targetPlayer = newTarget
+            updateUI()
+        end
+        
+        -- Bắt đầu bay lại
+        startFlying()
+        
+        -- Trang bị tool và bật skills
+        equipBloxFruit()
+        
+        isRespawning = false
+        print("✅ Hồi sinh hoàn tất, tiếp tục bay!")
+    end
+end
+
+local function onCharacterRemoving()
+    print("🗑️ Character đang bị xóa...")
+    if flyConnection then
+        flyConnection:Disconnect()
+        flyConnection = nil
+    end
+    if noclipConnection then
+        disableNoclip()
+    end
+end
+
+-- KHỞI ĐỘNG SCRIPT ----------------------------------------------------------
+
+local function startAutoFly()
+    print("========================================")
+    print("🚀 AUTO FLY + ATTACK SCRIPT ĐANG KHỞI ĐỘNG")
+    print("========================================")
+    
+    if not plr.Character then
+        print("⏳ Đang chờ character...")
+        plr.CharacterAdded:Wait()
+    end
+    wait(2)
+    
+    -- Bật các hiệu ứng
+    enableNoclip()
+    enableHighlight()
+    
+    -- Trang bị Blox Fruit ngay khi vào game
+    equipBloxFruit()
+    
+    -- Tìm target đầu tiên
+    targetPlayer = getNearestPlayer()
+    
+    if targetPlayer then
+        print("🎯 Đã tìm thấy target: " .. targetPlayer.Name)
+        updateUI()
+        
+        -- Bắt đầu bay
+        startFlying()
+        
+        -- Theo dõi thay đổi target
+        task.spawn(function()
+            while flyActive do
+                if not targetPlayer or blacklist[targetPlayer] then
+                    local newTarget = getNearestPlayer()
+                    if newTarget then
+                        targetPlayer = newTarget
+                        updateUI()
+                        print("🔄 Đã chuyển sang target mới: " .. targetPlayer.Name)
+                    end
+                end
+                wait(0.5)
+            end
+        end)
+    end
+    
+    -- AUTO SKILLS LOOP
+    task.spawn(function()
+        while true do
+            if plr.Character then
+                autoBuso()
+                autoRaceV4()
+            end
+            wait(Sec)
+        end
+    end)
+    
+    -- AUTO ATTACK LOOP (FIXED) - Sử dụng Heartbeat để attack liên tục
+    task.spawn(function()
+        while true do
+            if _G.AutoAttack and plr.Character then
+                pcall(function()
+                    checkAndAttack()
+                end)
+            end
+            wait(0.1) -- Giảm delay để attack nhanh hơn
+        end
+    end)
+    
+    print("✅ Script đã khởi động thành công!")
+    print("⚔️ Auto Attack: " .. (_G.AutoAttack and "BẬT" or "TẮT"))
+    print("🎯 Attack Players: " .. (_G.AttackPlayers and "BẬT" or "TẮT"))
+    print("🛡️ Noclip: BẬT (ổn định)")
+end
+
+-- KẾT NỐI SỰ KIỆN -----------------------------------------------------------
+
+-- Kết nối sự kiện hồi sinh
+plr.CharacterAdded:Connect(onCharacterAdded)
+plr.CharacterRemoving:Connect(onCharacterRemoving)
+
+-- Kết nối sự kiện Input để toggle noclip (phím N)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.N then
+        if noclipConnection then
+            disableNoclip()
+        else
+            enableNoclip()
+        end
+    end
+end)
+
+-- KHỞI CHẠY CHÍNH -----------------------------------------------------------
+
+task.spawn(function()
+    startAutoFly()
+end)
+
+print("========================================")
+print("🎮 AUTO FLY + ATTACK SCRIPT ĐÃ SẴN SÀNG")
+print("========================================")
+print("🌟 Tính năng chính:")
+print("1. Tự động bay đến player gần nhất")
+print("2. Auto Attack quái vật & player")
+print("3. Auto trang bị Blox Fruit")
+print("4. Auto Buso Haki")
+print("5. Auto Race V4")
+print("6. Tự động hồi sinh và tiếp tục")
+print("7. Noclip ổn định (nhấn N để bật/tắt)")
+print("========================================")    {Name = "Quests", Title = "Items Farm", Icon = "📦"},
     {Name = "New", Title = "New Events", Icon = "✨"},
     {Name = "SeaEvent", Title = "Sea Events", Icon = "🌊"},
     {Name = "Mirage", Title = "Mirage + RaceV4", Icon = "🌀"},
