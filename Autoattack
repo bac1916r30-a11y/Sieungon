@@ -1,0 +1,442 @@
+-- Auto Attack Script
+-- Version: 1.2 (Fixed Toggle Issue)
+
+-- Services
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local CollectionService = game:GetService("CollectionService")
+
+-- Variables
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+-- Global Variables
+_G.AutoAttack = true -- Mặc định bật Auto Attack
+_G.AttackPlayers = false -- Mặc định chỉ tấn công quái
+
+--------------------------------------------------------------------
+-- GUI MAIN
+--------------------------------------------------------------------
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AutoAttackGui"
+screenGui.Parent = PlayerGui
+
+-- Auto Attack Toggle Button
+local autoAttackBtn = Instance.new("TextButton")
+autoAttackBtn.Size = UDim2.new(0, 150, 0, 50)
+autoAttackBtn.Position = UDim2.new(0, 20, 0, 20)
+autoAttackBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+autoAttackBtn.TextColor3 = Color3.new(1, 1, 1)
+autoAttackBtn.Font = Enum.Font.SourceSansBold
+autoAttackBtn.TextSize = 24
+autoAttackBtn.Text = "Auto Attack: Mobs"
+autoAttackBtn.Parent = screenGui
+
+-- Hide/Show Button
+local toggleHide = Instance.new("TextButton")
+toggleHide.Size = UDim2.new(0, 25, 0, 25)
+toggleHide.Position = UDim2.new(1, -65, 0, 5)
+toggleHide.BackgroundColor3 = Color3.fromRGB(50, 200, 255)
+toggleHide.TextColor3 = Color3.new(1,1,1)
+toggleHide.Text = "-"
+toggleHide.Parent = screenGui
+
+-- Close Button
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 25, 0, 25)
+closeBtn.Position = UDim2.new(1, -95, 0, 5)
+closeBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+closeBtn.TextColor3 = Color3.new(1,1,1)
+closeBtn.Text = "X"
+closeBtn.ZIndex = 3
+closeBtn.Parent = screenGui
+
+-- Popup Confirmation
+local popup = Instance.new("Frame")
+popup.Size = UDim2.new(0, 300, 0, 150)
+popup.Position = UDim2.new(0.5, -150, 0.5, -75)
+popup.AnchorPoint = Vector2.new(0.5, 0.5)
+popup.BackgroundColor3 = Color3.fromRGB(50,50,50)
+popup.BorderSizePixel = 2
+popup.BorderColor3 = Color3.fromRGB(100,100,100)
+popup.Visible = false
+popup.ZIndex = 10
+popup.Parent = screenGui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1,0,0,40)
+title.Position = UDim2.new(0,0,0,10)
+title.Text = "Bạn có muốn xóa GUI?"
+title.TextColor3 = Color3.new(1,1,1)
+title.BackgroundTransparency = 1
+title.Font = Enum.Font.SourceSansBold
+title.TextSize = 20
+title.ZIndex = 11
+title.Parent = popup
+
+local noBtn = Instance.new("TextButton")
+noBtn.Size = UDim2.new(0.5,-5,0,40)
+noBtn.Position = UDim2.new(0,5,1,-45)
+noBtn.Text = "Không"
+noBtn.BackgroundColor3 = Color3.fromRGB(100,200,100)
+noBtn.TextColor3 = Color3.new(1,1,1)
+noBtn.ZIndex = 11
+noBtn.Parent = popup
+
+local yesBtn = Instance.new("TextButton")
+yesBtn.Size = UDim2.new(0.5,-5,0,40)
+yesBtn.Position = UDim2.new(0.5,0,1,-45)
+yesBtn.Text = "Có"
+yesBtn.BackgroundColor3 = Color3.fromRGB(200,100,100)
+yesBtn.TextColor3 = Color3.new(1,1,1)
+yesBtn.ZIndex = 11
+yesBtn.Parent = popup
+
+local overlay = Instance.new("TextButton")
+overlay.Size = UDim2.new(1, 0, 1, 0)
+overlay.BackgroundColor3 = Color3.new(0, 0, 0)
+overlay.BackgroundTransparency = 0.5
+overlay.Text = ""
+overlay.Visible = false
+overlay.ZIndex = 9
+overlay.Parent = screenGui
+
+--------------------------------------------------------------------
+-- GUI EVENTS (FIXED)
+--------------------------------------------------------------------
+-- Biến theo dõi chế độ hiện tại
+local currentMode = 2 -- 1: OFF, 2: Mobs, 3: All
+
+-- Hàm cập nhật giao diện nút
+local function updateButton()
+    if currentMode == 1 then
+        -- Chế độ OFF
+        _G.AutoAttack = false
+        _G.AttackPlayers = false
+        autoAttackBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+        autoAttackBtn.Text = "Auto Attack: OFF"
+    elseif currentMode == 2 then
+        -- Chế độ Mobs Only
+        _G.AutoAttack = true
+        _G.AttackPlayers = false
+        autoAttackBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+        autoAttackBtn.Text = "Auto Attack: Mobs"
+    elseif currentMode == 3 then
+        -- Chế độ All
+        _G.AutoAttack = true
+        _G.AttackPlayers = true
+        autoAttackBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 255)
+        autoAttackBtn.Text = "Auto Attack: All"
+    end
+end
+
+-- Auto Attack Toggle (FIXED)
+autoAttackBtn.MouseButton1Click:Connect(function()
+    -- Chuyển sang chế độ tiếp theo
+    currentMode = currentMode + 1
+    if currentMode > 3 then
+        currentMode = 1 -- Quay về chế độ OFF
+    end
+    
+    -- Cập nhật giao diện
+    updateButton()
+    
+    print("Chế độ hiện tại: " .. currentMode)
+    print("AutoAttack: " .. tostring(_G.AutoAttack))
+    print("AttackPlayers: " .. tostring(_G.AttackPlayers))
+end)
+
+-- Hide/Show Button
+toggleHide.MouseButton1Click:Connect(function()
+    autoAttackBtn.Visible = not autoAttackBtn.Visible
+    toggleHide.Text = autoAttackBtn.Visible and "-" or "+"
+end)
+
+-- Close Button
+closeBtn.MouseButton1Click:Connect(function()
+    popup.Visible = true
+    overlay.Visible = true
+end)
+
+noBtn.MouseButton1Click:Connect(function()
+    popup.Visible = false
+    overlay.Visible = false
+end)
+
+yesBtn.MouseButton1Click:Connect(function()
+    _G.AutoAttack = false
+    _G.AttackPlayers = false
+    screenGui:Destroy()
+end)
+
+overlay.MouseButton1Click:Connect(function()
+    popup.Visible = false
+    overlay.Visible = false
+end)
+
+--------------------------------------------------------------------
+-- AUTO ATTACK SYSTEM
+--------------------------------------------------------------------
+-- Hàm lấy tất cả mục tiêu (bao gồm cả quái và người chơi)
+local function getAllTargets(position, radius)
+    local targets = {}
+    
+    -- Lấy quái vật từ Workspace.Enemies
+    for _, enemy in ipairs(Workspace.Enemies:GetChildren()) do
+        if enemy:IsA("Model") and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 and enemy:FindFirstChild("HumanoidRootPart") then
+            local distance = (enemy.HumanoidRootPart.Position - position).Magnitude
+            if distance <= radius then
+                table.insert(targets, enemy)
+            end
+        end
+    end
+    
+    -- Lấy SeaBeasts
+    for _, seaBeast in ipairs(Workspace.SeaBeasts:GetChildren()) do
+        if seaBeast:FindFirstChild("HumanoidRootPart") and seaBeast:FindFirstChild("Health") and seaBeast.Health.Value > 0 then
+            local distance = (seaBeast.HumanoidRootPart.Position - position).Magnitude
+            if distance <= radius then
+                table.insert(targets, seaBeast)
+            end
+        end
+    end
+    
+    -- Lấy người chơi khác nếu được bật
+    if _G.AttackPlayers then
+        for _, otherPlayer in ipairs(Players:GetPlayers()) do
+            if otherPlayer ~= Player and otherPlayer.Character then
+                local character = otherPlayer.Character
+                if character:FindFirstChild("Humanoid") and character.Humanoid.Health > 0 and character:FindFirstChild("HumanoidRootPart") then
+                    local distance = (character.HumanoidRootPart.Position - position).Magnitude
+                    if distance <= radius then
+                        table.insert(targets, character)
+                    end
+                end
+            end
+        end
+    end
+    
+    return targets
+end
+
+-- Hàm tấn công chính
+local function AttackNoCoolDown()
+    if not _G.AutoAttack then
+        return -- Nếu AutoAttack đang tắt thì không làm gì
+    end
+    
+    local localPlayer = Player
+    local character = localPlayer.Character
+    if not character then
+        return
+    end
+    
+    -- Tìm vũ khí
+    local weapon = nil
+    for _, tool in ipairs(character:GetChildren()) do
+        if tool:IsA("Tool") then
+            weapon = tool
+            break
+        end
+    end
+    if not weapon then
+        return
+    end
+    
+    -- Lấy vị trí người chơi
+    local playerRoot = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
+    if not playerRoot then
+        return
+    end
+    
+    -- Lấy tất cả mục tiêu trong bán kính
+    local allTargets = getAllTargets(playerRoot.Position, 60)
+    if #allTargets == 0 then
+        return
+    end
+    
+    -- Tìm các remote để tấn công
+    local replicatedStorage = ReplicatedStorage
+    local modules = replicatedStorage:FindFirstChild("Modules")
+    if not modules then
+        return
+    end
+    
+    local registerAttack = ((replicatedStorage:WaitForChild("Modules")):WaitForChild("Net")):WaitForChild("RE/RegisterAttack")
+    local registerHit = ((replicatedStorage:WaitForChild("Modules")):WaitForChild("Net")):WaitForChild("RE/RegisterHit")
+    
+    if not registerAttack or not registerHit then
+        return
+    end
+    
+    -- Chuẩn bị danh sách mục tiêu để tấn công
+    local hitTargets, primaryTarget = {}, nil
+    for _, target in ipairs(allTargets) do
+        -- Chọn bộ phận ngẫu nhiên để tấn công
+        local hitParts = {
+            "RightLowerArm", "RightUpperArm", "LeftLowerArm", "LeftUpperArm",
+            "RightHand", "LeftHand", "Head", "HumanoidRootPart", "UpperTorso", "LowerTorso"
+        }
+        
+        local hitPart = nil
+        for _, partName in ipairs(hitParts) do
+            local part = target:FindFirstChild(partName)
+            if part then
+                hitPart = part
+                break
+            end
+        end
+        
+        if not hitPart then
+            hitPart = target.PrimaryPart or target:FindFirstChild("HumanoidRootPart")
+        end
+        
+        if hitPart then
+            table.insert(hitTargets, {target, hitPart})
+            if not primaryTarget then
+                primaryTarget = hitPart
+            end
+        end
+    end
+    
+    if not primaryTarget then
+        return
+    end
+    
+    -- Thực hiện tấn công
+    registerAttack:FireServer(0)
+    
+    -- Tìm và gửi dữ liệu tấn công
+    local playerScripts = localPlayer:FindFirstChild("PlayerScripts")
+    if not playerScripts then
+        return
+    end
+    
+    local localScript = playerScripts:FindFirstChildOfClass("LocalScript")
+    while not localScript do
+        playerScripts.ChildAdded:Wait()
+        localScript = playerScripts:FindFirstChildOfClass("LocalScript")
+    end
+    
+    local sendHitsFunction
+    if getsenv then
+        local success, env = pcall(getsenv, localScript)
+        if success and env then
+            sendHitsFunction = env._G.SendHitsToServer
+        end
+    end
+    
+    local success, combatRemoteThread = pcall(function()
+        return (require(modules.Flags)).COMBAT_REMOTE_THREAD or false
+    end)
+    
+    if success and (combatRemoteThread and sendHitsFunction) then
+        sendHitsFunction(primaryTarget, hitTargets)
+    elseif success and not combatRemoteThread then
+        registerHit:FireServer(primaryTarget, hitTargets)
+    end
+end
+
+-- Hàm kiểm tra có mục tiêu trong phạm vi không
+local function hasTargetInRange()
+    if not _G.AutoAttack then
+        return false -- Nếu AutoAttack đang tắt thì không kiểm tra
+    end
+    
+    local character = Player.Character
+    if not character then return false end
+    
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if not root then return false end
+    
+    -- Kiểm tra quái vật
+    for _, enemy in ipairs(Workspace.Enemies:GetChildren()) do
+        if enemy:FindFirstChild("HumanoidRootPart") and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
+            local distance = (enemy.HumanoidRootPart.Position - root.Position).Magnitude
+            if distance <= 50 then
+                return true
+            end
+        end
+    end
+    
+    -- Kiểm tra SeaBeasts
+    for _, seaBeast in ipairs(Workspace.SeaBeasts:GetChildren()) do
+        if seaBeast:FindFirstChild("HumanoidRootPart") and seaBeast:FindFirstChild("Health") and seaBeast.Health.Value > 0 then
+            local distance = (seaBeast.HumanoidRootPart.Position - root.Position).Magnitude
+            if distance <= 50 then
+                return true
+            end
+        end
+    end
+    
+    -- Kiểm tra người chơi khác
+    if _G.AttackPlayers then
+        for _, otherPlayer in ipairs(Players:GetPlayers()) do
+            if otherPlayer ~= Player and otherPlayer.Character then
+                local targetChar = otherPlayer.Character
+                if targetChar:FindFirstChild("HumanoidRootPart") and targetChar:FindFirstChild("Humanoid") and targetChar.Humanoid.Health > 0 then
+                    local distance = (targetChar.HumanoidRootPart.Position - root.Position).Magnitude
+                    if distance <= 50 then
+                        return true
+                    end
+                end
+            end
+        end
+    end
+    
+    return false
+end
+
+-- Hàm kích hoạt skill cho Blox Fruit
+local function Actived()
+    local weapon = Player.Character:FindFirstChildOfClass("Tool")
+    if weapon then
+        for _, connection in next, getconnections(weapon.Activated) do
+            if typeof(connection.Function) == "function" then
+                getupvalues(connection.Function)
+            end
+        end
+    end
+end
+
+-- Main Auto Attack Loop
+task.spawn(function()
+    RunService.Heartbeat:Connect(function()
+        pcall(function()
+            if not _G.AutoAttack then
+                return -- Nếu AutoAttack tắt thì không chạy
+            end
+            
+            -- Tấn công thường
+            AttackNoCoolDown()
+            
+            -- Kích hoạt skill cho Blox Fruit nếu có
+            local weapon = Player.Character:FindFirstChildOfClass("Tool")
+            if not weapon then return end
+            
+            local weaponType = weapon.ToolTip
+            if weaponType == "Blox Fruit" then
+                if hasTargetInRange() then
+                    local leftClickRemote = weapon:FindFirstChild("LeftClickRemote")
+                    if leftClickRemote then
+                        Actived()
+                        leftClickRemote:FireServer(Vector3.new(.01, -500, .01), 1, true)
+                        leftClickRemote:FireServer(false)
+                    end
+                end
+            end
+        end)
+    end)
+end)
+
+-- Khởi tạo nút với chế độ mặc định
+updateButton()
+
+-- Thông báo khi script chạy
+print("Auto Attack Script Loaded!")
+print("Chế độ mặc định: Mobs Only")
+print("Click nút để chuyển đổi: OFF -> Mobs -> All -> OFF")
