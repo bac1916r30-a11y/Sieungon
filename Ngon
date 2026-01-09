@@ -1,0 +1,16 @@
+local Games = {
+  [2753915549] = "https://raw.githubusercontent.com/bac1916r30-a11y/Sieungon/refs/heads/main/Autoattack
+  [2753915549] = "https://raw.githubusercontent.com/bac1916r30-a11y/Sieungon/refs/heads/main/AutoBounty
+  [85211729168715] = "https://raw.githubusercontent.com/bac1916r30-a11y/Sieungon/refs/heads/main/Autoattack
+  [85211729168715] = "https://raw.githubusercontent.com/bac1916r30-a11y/Sieungon/refs/heads/main/AutoBounty
+  [4442272183] = "https://raw.githubusercontent.com/bac1916r30-a11y/Sieungon/refs/heads/main/Autoattack
+  [4442272183] = "https://raw.githubusercontent.com/bac1916r30-a11y/Sieungon/refs/heads/main/AutoBounty
+  [79091703265657] = "https://raw.githubusercontent.com/bac1916r30-a11y/Sieungon/refs/heads/main/Autoattack
+  [79091703265657] = "https://raw.githubusercontent.com/bac1916r30-a11y/Sieungon/refs/heads/main/AutoBounty
+  [7449423635] = "https://raw.githubusercontent.com/bac1916r30-a11y/Sieungon/refs/heads/main/Autoattack
+  [7449423635] = "https://raw.githubusercontent.com/bac1916r30-a11y/Sieungon/refs/heads/main/AutoBounty
+  [100117331123089] = "https://raw.githubusercontent.com/bac1916r30-a11y/Sieungon/refs/heads/main/Autoattack
+  [100117331123089] = "https://raw.githubusercontent.com/bac1916r30-a11y/Sieungon/refs/heads/main/AutoBounty
+}
+
+return Games
